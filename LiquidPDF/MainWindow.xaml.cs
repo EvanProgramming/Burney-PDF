@@ -54,6 +54,10 @@ namespace LiquidPDF
         private int _targetPage = 0;           // 目标页码
         private float _pageTransition = 1.0f;  // 过渡进度 0-1
         private System.Windows.Threading.DispatcherTimer? _animationTimer;
+        
+        // 鼠标悬停效果相关字段
+        private SKPoint _mousePosition;
+        private Dictionary<string, SKRect> _hitboxes = new();
 
         public MainWindow()
         {
@@ -508,6 +512,9 @@ namespace LiquidPDF
             const float CAPSULE_MARGIN = 20;
             const float TOOLBAR_PADDING = 16;
 
+            // 清空碰撞区域字典
+            _hitboxes.Clear();
+
             // 8. 绘制顶部液态玻璃工具栏
             var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, TOOLBAR_HEIGHT), 0, 0);
             _glass.DrawGlassPanel(canvas, toolbarRect, _backgroundSnapshot, _isDarkMode);
@@ -533,7 +540,6 @@ namespace LiquidPDF
             using (var iconPaint = new SKPaint())
             {
                 iconPaint.IsAntialias = true;
-                iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
                 iconPaint.TextSize = 16;
                 iconPaint.TextAlign = SKTextAlign.Center;
                 // 设置 Segoe UI Symbol 字体
@@ -542,18 +548,88 @@ namespace LiquidPDF
                 // 左侧：侧边栏切换按钮图标 "☰"
                 float sidebarIconX = TOOLBAR_PADDING;
                 float iconY = TOOLBAR_HEIGHT / 2f + 4;
+                var sidebarIconRect = new SKRect(sidebarIconX - 16, iconY - 16, sidebarIconX + 16, iconY + 16);
+                _hitboxes["sidebar"] = sidebarIconRect;
+                
+                // 检查鼠标是否悬停
+                if (sidebarIconRect.Contains(_mousePosition))
+                {
+                    // 绘制背景高光
+                    using (var highlightPaint = new SKPaint())
+                    {
+                        highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                        highlightPaint.IsAntialias = true;
+                        canvas.DrawCircle(sidebarIconX, iconY, 16, highlightPaint);
+                    }
+                    iconPaint.Color = new SKColor(255, 255, 255, 200);
+                }
+                else
+                {
+                    iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                }
                 canvas.DrawText("☰", sidebarIconX, iconY, iconPaint);
 
                 // 右侧：搜索图标 "🔍"
                 float searchIconX = info.Width - TOOLBAR_PADDING - 40;
+                var searchIconRect = new SKRect(searchIconX - 16, iconY - 16, searchIconX + 16, iconY + 16);
+                _hitboxes["search"] = searchIconRect;
+                
+                if (searchIconRect.Contains(_mousePosition))
+                {
+                    using (var highlightPaint = new SKPaint())
+                    {
+                        highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                        highlightPaint.IsAntialias = true;
+                        canvas.DrawCircle(searchIconX, iconY, 16, highlightPaint);
+                    }
+                    iconPaint.Color = new SKColor(255, 255, 255, 200);
+                }
+                else
+                {
+                    iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                }
                 canvas.DrawText("🔍", searchIconX, iconY, iconPaint);
 
                 // 右侧：主题切换图标
                 float themeIconX = info.Width - TOOLBAR_PADDING - 80;
+                var themeIconRect = new SKRect(themeIconX - 16, iconY - 16, themeIconX + 16, iconY + 16);
+                _hitboxes["theme"] = themeIconRect;
+                
+                if (themeIconRect.Contains(_mousePosition))
+                {
+                    using (var highlightPaint = new SKPaint())
+                    {
+                        highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                        highlightPaint.IsAntialias = true;
+                        canvas.DrawCircle(themeIconX, iconY, 16, highlightPaint);
+                    }
+                    iconPaint.Color = new SKColor(255, 255, 255, 200);
+                }
+                else
+                {
+                    iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                }
                 canvas.DrawText(_isDarkMode ? "☀️" : "🌙", themeIconX, iconY, iconPaint);
 
                 // 右侧：更多选项图标 "⋯"
                 float moreIconX = info.Width - TOOLBAR_PADDING;
+                var moreIconRect = new SKRect(moreIconX - 16, iconY - 16, moreIconX + 16, iconY + 16);
+                _hitboxes["more"] = moreIconRect;
+                
+                if (moreIconRect.Contains(_mousePosition))
+                {
+                    using (var highlightPaint = new SKPaint())
+                    {
+                        highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                        highlightPaint.IsAntialias = true;
+                        canvas.DrawCircle(moreIconX, iconY, 16, highlightPaint);
+                    }
+                    iconPaint.Color = new SKColor(255, 255, 255, 200);
+                }
+                else
+                {
+                    iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                }
                 canvas.DrawText("⋯", moreIconX, iconY, iconPaint);
             }
 
@@ -596,16 +672,60 @@ namespace LiquidPDF
 
                     // 左侧：上一页箭头
                     float leftArrowX = capsuleX + 28;
-                    arrowPaint.Color = _currentPage > 0 
-                        ? ColorScheme.TextSecondary(_isDarkMode) 
-                        : new SKColor(ColorScheme.TextSecondary(_isDarkMode).Red, ColorScheme.TextSecondary(_isDarkMode).Green, ColorScheme.TextSecondary(_isDarkMode).Blue, 60);
+                    var leftArrowRect = new SKRect(leftArrowX - 16, centerY - 16, leftArrowX + 16, centerY + 16);
+                    _hitboxes["leftArrow"] = leftArrowRect;
+                    
+                    if (_currentPage > 0)
+                    {
+                        if (leftArrowRect.Contains(_mousePosition))
+                        {
+                            // 绘制背景高光
+                            using (var highlightPaint = new SKPaint())
+                            {
+                                highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                                highlightPaint.IsAntialias = true;
+                                canvas.DrawCircle(leftArrowX, centerY, 16, highlightPaint);
+                            }
+                            arrowPaint.Color = new SKColor(255, 255, 255, 200);
+                        }
+                        else
+                        {
+                            arrowPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                        }
+                    }
+                    else
+                    {
+                        arrowPaint.Color = new SKColor(ColorScheme.TextSecondary(_isDarkMode).Red, ColorScheme.TextSecondary(_isDarkMode).Green, ColorScheme.TextSecondary(_isDarkMode).Blue, 60);
+                    }
                     canvas.DrawText("◀", leftArrowX, centerY, arrowPaint);
 
                     // 右侧：下一页箭头
                     float rightArrowX = capsuleX + capsuleW - 28;
-                    arrowPaint.Color = _currentPage < _pdf.PageCount - 1 
-                        ? ColorScheme.TextSecondary(_isDarkMode) 
-                        : new SKColor(ColorScheme.TextSecondary(_isDarkMode).Red, ColorScheme.TextSecondary(_isDarkMode).Green, ColorScheme.TextSecondary(_isDarkMode).Blue, 60);
+                    var rightArrowRect = new SKRect(rightArrowX - 16, centerY - 16, rightArrowX + 16, centerY + 16);
+                    _hitboxes["rightArrow"] = rightArrowRect;
+                    
+                    if (_currentPage < _pdf.PageCount - 1)
+                    {
+                        if (rightArrowRect.Contains(_mousePosition))
+                        {
+                            // 绘制背景高光
+                            using (var highlightPaint = new SKPaint())
+                            {
+                                highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                                highlightPaint.IsAntialias = true;
+                                canvas.DrawCircle(rightArrowX, centerY, 16, highlightPaint);
+                            }
+                            arrowPaint.Color = new SKColor(255, 255, 255, 200);
+                        }
+                        else
+                        {
+                            arrowPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                        }
+                    }
+                    else
+                    {
+                        arrowPaint.Color = new SKColor(ColorScheme.TextSecondary(_isDarkMode).Red, ColorScheme.TextSecondary(_isDarkMode).Green, ColorScheme.TextSecondary(_isDarkMode).Blue, 60);
+                    }
                     canvas.DrawText("▶", rightArrowX, centerY, arrowPaint);
                 }
             }
@@ -946,6 +1066,17 @@ namespace LiquidPDF
                 WindowBorder.Background = new SolidColorBrush(bgColor);
                 WindowBorder.BorderBrush = new SolidColorBrush(borderColor);
             }
+        }
+        
+        // 鼠标移动事件
+        private void OnMouseMove(object sender, MouseEventArgs e)
+        {
+            // 获取鼠标位置（考虑 DPI 缩放）
+            var point = e.GetPosition(MainCanvas);
+            _mousePosition = new SKPoint((float)point.X, (float)point.Y);
+            
+            // 重绘画布以更新悬停效果
+            MainCanvas.InvalidateVisual();
         }
 
         // 缓动函数：Cubic ease-out

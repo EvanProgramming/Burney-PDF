@@ -47,7 +47,7 @@
             </Grid>
             
             <!-- 内容区域 -->
-            <skia:SKElement x:Name="MainCanvas" Margin="0,52,0,0" PaintSurface="MainCanvas_PaintSurface" MouseWheel="OnMouseWheel" MouseDown="OnMouseDown"/>
+            <skia:SKElement x:Name="MainCanvas" Margin="0,52,0,0" PaintSurface="MainCanvas_PaintSurface" MouseWheel="OnMouseWheel" MouseDown="OnMouseDown" MouseMove="OnMouseMove"/>
         </Grid>
     </Border>
 </Window>
