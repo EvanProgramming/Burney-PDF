@@ -480,6 +480,7 @@
     "net8.0-windows7.0": [
       "CommunityToolkit.Mvvm >= *",
       "Docnet.Core >= *",
+      "SkiaSharp >= *",
       "SkiaSharp.Views.WPF >= *"
     ]
   },
@@ -531,6 +532,10 @@
             "version": "[*, )"
           },
           "Docnet.Core": {
+            "target": "Package",
+            "version": "[*, )"
+          },
+          "SkiaSharp": {
             "target": "Package",
             "version": "[*, )"
           },

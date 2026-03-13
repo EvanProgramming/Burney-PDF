@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="*" />
     <PackageReference Include="SkiaSharp.Views.WPF" Version="*" />
     <PackageReference Include="Docnet.Core" Version="*" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="*" />

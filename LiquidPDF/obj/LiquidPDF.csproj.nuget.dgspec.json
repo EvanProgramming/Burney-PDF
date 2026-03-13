@@ -52,6 +52,10 @@
               "target": "Package",
               "version": "[*, )"
             },
+            "SkiaSharp": {
+              "target": "Package",
+              "version": "[*, )"
+            },
             "SkiaSharp.Views.WPF": {
               "target": "Package",
               "version": "[*, )"

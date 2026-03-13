@@ -34,13 +34,13 @@
                 <!-- 右侧按钮 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Width="36" Height="28" Margin="0,0,1,0" Background="Transparent" Foreground="#FFFFFF" MouseEnter="WindowButton_MouseEnter" MouseLeave="WindowButton_MouseLeave" Click="MinimizeButton_Click">
-                        <Path Data="M0,9 L10,9" Stroke="#FFFFFF" StrokeThickness="2" StrokeLineCap="Round"/>
+                        <Path Data="M0,9 L10,9" Stroke="#FFFFFF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Button>
                     <Button x:Name="MaximizeButton" Width="36" Height="28" Margin="1,0,1,0" Background="Transparent" Foreground="#FFFFFF" MouseEnter="WindowButton_MouseEnter" MouseLeave="WindowButton_MouseLeave" Click="MaximizeButton_Click">
-                        <Path Data="M1,1 L9,1 L9,9 L1,9 Z" Stroke="#FFFFFF" StrokeThickness="2" StrokeLineCap="Round"/>
+                        <Path Data="M1,1 L9,1 L9,9 L1,9 Z" Stroke="#FFFFFF" StrokeThickness="2"/>
                     </Button>
                     <Button Width="36" Height="28" Margin="1,0,16,0" Background="Transparent" Foreground="#FFFFFF" MouseEnter="CloseButton_MouseEnter" MouseLeave="WindowButton_MouseLeave" Click="CloseButton_Click">
-                        <Path Data="M1,1 L9,9 M9,1 L1,9" Stroke="#FFFFFF" StrokeThickness="2" StrokeLineCap="Round"/>
+                        <Path Data="M1,1 L9,9 M9,1 L1,9" Stroke="#FFFFFF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Button>
                 </StackPanel>
             </Grid>

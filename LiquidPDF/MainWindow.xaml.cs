@@ -55,32 +55,36 @@ namespace LiquidPDF
             }
         }
 
-        // 标题栏双击事件 - 最大化/还原
-        private void TitleBar_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        // 窗口双击事件 - 最大化/还原
+        private void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (isMaximized)
+            // 检查点击位置是否在标题栏区域
+            if (e.GetPosition(this).Y <= 52)
             {
-                // 还原窗口
-                isMaximized = false;
-                WindowState = WindowState.Normal;
-                
-                // 还原到之前的尺寸和位置
-                Left = previousLeft;
-                Top = previousTop;
-                Width = previousWidth;
-                Height = previousHeight;
-            }
-            else
-            {
-                // 保存当前尺寸和位置
-                previousLeft = Left;
-                previousTop = Top;
-                previousWidth = Width;
-                previousHeight = Height;
-                
-                // 最大化窗口
-                isMaximized = true;
-                WindowState = WindowState.Maximized;
+                if (isMaximized)
+                {
+                    // 还原窗口
+                    isMaximized = false;
+                    WindowState = WindowState.Normal;
+                    
+                    // 还原到之前的尺寸和位置
+                    Left = previousLeft;
+                    Top = previousTop;
+                    Width = previousWidth;
+                    Height = previousHeight;
+                }
+                else
+                {
+                    // 保存当前尺寸和位置
+                    previousLeft = Left;
+                    previousTop = Top;
+                    previousWidth = Width;
+                    previousHeight = Height;
+                    
+                    // 最大化窗口
+                    isMaximized = true;
+                    WindowState = WindowState.Maximized;
+                }
             }
         }
 
@@ -153,7 +157,7 @@ namespace LiquidPDF
         }
 
         // SKElement 绘制事件
-        private void MainCanvas_PaintSurface(object sender, SKPaintSurfaceEventArgs e)
+        private void MainCanvas_PaintSurface(object sender, SkiaSharp.Views.Desktop.SKPaintSurfaceEventArgs e)
         {
             // 获取画布和尺寸
             SKCanvas canvas = e.Surface.Canvas;
