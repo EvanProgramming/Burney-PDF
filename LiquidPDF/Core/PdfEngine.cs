@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace LiquidPDF.Core
 {
@@ -143,6 +144,83 @@ namespace LiquidPDF.Core
                     return null;
                 }
             }
+        }
+
+        /// <summary>
+        /// 异步渲染指定页面
+        /// </summary>
+        /// <param name="pageIndex">页面索引（从 0 开始）</param>
+        /// <param name="targetWidth">目标宽度</param>
+        /// <returns>渲染后的 bitmap，失败返回 null</returns>
+        public async Task<SKBitmap?> RenderPageAsync(int pageIndex, int targetWidth)
+        {
+            return await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    // 检查是否已加载 PDF
+                    if (!IsLoaded)
+                    {
+                        return null;
+                    }
+
+                    // 检查页面索引是否有效
+                    if (pageIndex < 0 || pageIndex >= PageCount)
+                    {
+                        return null;
+                    }
+
+                    // 检查缓存
+                    var cacheKey = (pageIndex, targetWidth);
+                    if (_cache.TryGetValue(cacheKey, out var cachedBitmap))
+                    {
+                        // 更新 LRU 队列
+                        UpdateLruQueue(cacheKey);
+                        return cachedBitmap;
+                    }
+
+                    try
+                    {
+                        // 模拟渲染页面
+                        // 实际应用中这里会使用 Docnet.Core 渲染真实的 PDF 页面
+                        int targetHeight = (int)(targetWidth * 1.414f); // A4 比例
+                        var info = new SKImageInfo(targetWidth, targetHeight, SKColorType.Bgra8888, SKAlphaType.Premul);
+                        var bitmap = new SKBitmap(info);
+
+                        // 填充白色背景
+                        using var canvas = new SKCanvas(bitmap);
+                        canvas.Clear(SKColors.White);
+
+                        // 绘制一些测试内容
+                        using var paint = new SKPaint();
+                        paint.Color = SKColors.Black;
+                        paint.TextSize = 24;
+                        paint.TextAlign = SKTextAlign.Center;
+                        canvas.DrawText("PDF Page " + (pageIndex + 1), targetWidth / 2f, targetHeight / 2f, paint);
+
+                        // 存入缓存
+                        _cache[cacheKey] = bitmap;
+                        _lruQueue.Enqueue(cacheKey);
+
+                        // 检查缓存大小
+                        if (_cache.Count > MAX_CACHE_SIZE)
+                        {
+                            var oldestKey = _lruQueue.Dequeue();
+                            if (_cache.TryGetValue(oldestKey, out var oldestBitmap))
+                            {
+                                oldestBitmap.Dispose();
+                                _cache.Remove(oldestKey);
+                            }
+                        }
+
+                        return bitmap;
+                    }
+                    catch (Exception)
+                    {
+                        return null;
+                    }
+                }
+            });
         }
 
         /// <summary>

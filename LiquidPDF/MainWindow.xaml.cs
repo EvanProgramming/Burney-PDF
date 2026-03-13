@@ -58,6 +58,10 @@ namespace LiquidPDF
         // 鼠标悬停效果相关字段
         private SKPoint _mousePosition;
         private Dictionary<string, SKRect> _hitboxes = new();
+        
+        // 异步渲染相关字段
+        private Dictionary<int, SKBitmap?> _renderedPages = new();
+        private HashSet<int> _renderingPages = new();
 
         public MainWindow()
         {
@@ -395,7 +399,19 @@ namespace LiquidPDF
                 {
                     // 绘制当前页（淡出）
                     int currentRenderWidth = (int)(pageWidth * _zoom);
-                    var currentBitmap = _pdf.RenderPage(_currentPage, currentRenderWidth);
+                    SKBitmap? currentBitmap = null;
+                    
+                    if (_renderedPages.TryGetValue(_currentPage, out currentBitmap))
+                    {
+                        // 使用已渲染的页面
+                    }
+                    else if (!_renderingPages.Contains(_currentPage))
+                    {
+                        // 触发异步渲染
+                        _renderingPages.Add(_currentPage);
+                        _ = RenderPageInBackground(_currentPage, currentRenderWidth);
+                    }
+                    
                     if (currentBitmap != null)
                     {
                         // 绘制阴影
@@ -431,6 +447,11 @@ namespace LiquidPDF
                             canvas.Restore();
                         }
                     }
+                    else
+                    {
+                        // 显示加载占位符
+                        DrawLoadingPlaceholder(canvas, pdfRect, roundRect, "加载中...");
+                    }
 
                     // 绘制目标页（淡入）
                     float targetAspectRatio = _pdf.GetPageAspectRatio(_targetPage);
@@ -439,7 +460,19 @@ namespace LiquidPDF
                     var targetRoundRect = new SKRoundRect(targetPdfRect, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS);
 
                     int targetRenderWidth = (int)(pageWidth * _zoom);
-                    var targetBitmap = _pdf.RenderPage(_targetPage, targetRenderWidth);
+                    SKBitmap? targetBitmap = null;
+                    
+                    if (_renderedPages.TryGetValue(_targetPage, out targetBitmap))
+                    {
+                        // 使用已渲染的页面
+                    }
+                    else if (!_renderingPages.Contains(_targetPage))
+                    {
+                        // 触发异步渲染
+                        _renderingPages.Add(_targetPage);
+                        _ = RenderPageInBackground(_targetPage, targetRenderWidth);
+                    }
+                    
                     if (targetBitmap != null)
                     {
                         // 绘制目标页
@@ -455,12 +488,29 @@ namespace LiquidPDF
                             canvas.Restore();
                         }
                     }
+                    else
+                    {
+                        // 显示加载占位符
+                        DrawLoadingPlaceholder(canvas, targetPdfRect, targetRoundRect, "加载中...");
+                    }
                 }
                 else
                 {
                     // 正常绘制当前页
                     int renderWidth = (int)(pageWidth * _zoom);
-                    var bitmap = _pdf.RenderPage(_currentPage, renderWidth);
+                    SKBitmap? bitmap = null;
+                    
+                    if (_renderedPages.TryGetValue(_currentPage, out bitmap))
+                    {
+                        // 使用已渲染的页面
+                    }
+                    else if (!_renderingPages.Contains(_currentPage))
+                    {
+                        // 触发异步渲染
+                        _renderingPages.Add(_currentPage);
+                        _ = RenderPageInBackground(_currentPage, renderWidth);
+                    }
+                    
                     if (bitmap != null)
                     {
                         // 5. 绘制 macOS 风格的多层柔和阴影
@@ -498,6 +548,11 @@ namespace LiquidPDF
                             // 绘制 PDF 位图，填充整个页面区域
                             canvas.DrawBitmap(bitmap, pdfRect, paint);
                         }
+                    }
+                    else
+                    {
+                        // 显示加载占位符
+                        DrawLoadingPlaceholder(canvas, pdfRect, roundRect, "加载中...");
                     }
                 }
             }
@@ -880,6 +935,9 @@ namespace LiquidPDF
                         // 重置状态
                         _currentPage = 0;
                         _zoom = 1.0f;
+                        // 清空渲染缓存
+                        _renderedPages.Clear();
+                        _renderingPages.Clear();
                         // 重绘
                         MainCanvas.InvalidateVisual();
                     }
@@ -1077,6 +1135,85 @@ namespace LiquidPDF
             
             // 重绘画布以更新悬停效果
             MainCanvas.InvalidateVisual();
+        }
+        
+        // 异步渲染页面
+        private async Task RenderPageInBackground(int page, int renderWidth)
+        {
+            var bitmap = await _pdf.RenderPageAsync(page, renderWidth);
+            _renderedPages[page] = bitmap;
+            _renderingPages.Remove(page);
+            
+            // 触发重绘
+            Dispatcher.Invoke(() => MainCanvas.InvalidateVisual());
+            
+            // 预加载前后各 2 页
+            PreloadSurroundingPages(page, renderWidth);
+        }
+        
+        // 预加载周围页面
+        private void PreloadSurroundingPages(int currentPage, int renderWidth)
+        {
+            // 预加载前 2 页
+            for (int i = currentPage - 1; i >= currentPage - 2 && i >= 0; i--)
+            {
+                if (!_renderedPages.ContainsKey(i) && !_renderingPages.Contains(i))
+                {
+                    _renderingPages.Add(i);
+                    _ = _pdf.RenderPageAsync(i, renderWidth).ContinueWith(t =>
+                    {
+                        if (t.Result != null)
+                        {
+                            _renderedPages[i] = t.Result;
+                        }
+                        _renderingPages.Remove(i);
+                        Dispatcher.Invoke(() => MainCanvas.InvalidateVisual());
+                    });
+                }
+            }
+            
+            // 预加载后 2 页
+            for (int i = currentPage + 1; i <= currentPage + 2 && i < _pdf.PageCount; i++)
+            {
+                if (!_renderedPages.ContainsKey(i) && !_renderingPages.Contains(i))
+                {
+                    _renderingPages.Add(i);
+                    _ = _pdf.RenderPageAsync(i, renderWidth).ContinueWith(t =>
+                    {
+                        if (t.Result != null)
+                        {
+                            _renderedPages[i] = t.Result;
+                        }
+                        _renderingPages.Remove(i);
+                        Dispatcher.Invoke(() => MainCanvas.InvalidateVisual());
+                    });
+                }
+            }
+        }
+        
+        // 绘制加载占位符
+        private void DrawLoadingPlaceholder(SKCanvas canvas, SKRect rect, SKRoundRect roundRect, string text)
+        {
+            // 绘制白色背景
+            using (var bgPaint = new SKPaint())
+            {
+                bgPaint.Color = SKColors.White;
+                bgPaint.IsAntialias = true;
+                canvas.ClipRoundRect(roundRect);
+                canvas.DrawRect(rect, bgPaint);
+            }
+            
+            // 绘制加载文本
+            using (var textPaint = new SKPaint())
+            {
+                textPaint.Color = SKColors.Gray;
+                textPaint.TextSize = 16;
+                textPaint.IsAntialias = true;
+                textPaint.TextAlign = SKTextAlign.Center;
+                
+                float textY = rect.Top + rect.Height / 2f + 4;
+                canvas.DrawText(text, rect.Left + rect.Width / 2f, textY, textPaint);
+            }
         }
 
         // 缓动函数：Cubic ease-out
