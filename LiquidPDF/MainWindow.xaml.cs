@@ -35,6 +35,8 @@ namespace LiquidPDF
         private readonly LiquidGlassRenderer _glass = new();
         // 背景快照
         private SKImage? _backgroundSnapshot;
+        // 背景是否需要更新
+        private bool _backgroundDirty = true;
         // PDF 引擎
         private readonly PdfEngine _pdf = new();
         // 当前页码
@@ -557,9 +559,14 @@ namespace LiquidPDF
                 }
             }
 
-            // 7. 截取当前画布快照
-            _backgroundSnapshot?.Dispose();
-            _backgroundSnapshot = e.Surface.Snapshot();
+            // 7. 截取当前画布快照（仅在需要时）
+            if (_backgroundDirty)
+            {
+                _backgroundSnapshot?.Dispose();
+                _backgroundSnapshot = e.Surface.Snapshot();
+                _glass.MarkBackgroundDirty();
+                _backgroundDirty = false;
+            }
 
             // 定义常量
             const float TOOLBAR_HEIGHT = 52;
@@ -803,6 +810,8 @@ namespace LiquidPDF
         // 窗口大小改变事件
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
         {
+            // 标记背景为脏，需要更新
+            _backgroundDirty = true;
             // 触发重绘
             MainCanvas.InvalidateVisual();
         }
@@ -935,6 +944,8 @@ namespace LiquidPDF
                         // 重置状态
                         _currentPage = 0;
                         _zoom = 1.0f;
+                        // 标记背景为脏，需要更新
+                        _backgroundDirty = true;
                         // 清空渲染缓存
                         _renderedPages.Clear();
                         _renderingPages.Clear();
@@ -983,8 +994,13 @@ namespace LiquidPDF
                     if (_zoom < 0.3f) _zoom = 0.3f;
                 }
 
+                // 标记背景为脏，需要更新
+                _backgroundDirty = true;
                 // 清空 PDF 缓存（因为渲染尺寸变了）
                 _pdf.ClearCache();
+                // 清空渲染缓存
+                _renderedPages.Clear();
+                _renderingPages.Clear();
                 // 重绘
                 MainCanvas.InvalidateVisual();
             }
@@ -1134,6 +1150,7 @@ namespace LiquidPDF
             _mousePosition = new SKPoint((float)point.X, (float)point.Y);
             
             // 重绘画布以更新悬停效果
+            // 注意：鼠标移动不标记背景为脏，避免频繁更新背景快照
             MainCanvas.InvalidateVisual();
         }
         
@@ -1227,6 +1244,8 @@ namespace LiquidPDF
 
             _targetPage = newPage;
             _pageTransition = 0f;
+            // 标记背景为脏，需要更新
+            _backgroundDirty = true;
 
             // 停止之前的计时器
             _animationTimer?.Stop();

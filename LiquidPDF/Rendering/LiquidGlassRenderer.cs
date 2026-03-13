@@ -14,6 +14,13 @@ namespace LiquidPDF.Rendering
         private float _chromaticAberration = 2.5f;    // 色散强度（px）
         private float _innerOpacity = 0.12f;          // 内部填充透明度
         private float _borderHighlight = 0.6f;        // 边缘高光强度
+        
+        // 性能优化相关字段
+        private SKImage? _cachedBackground;           // 缓存的背景快照
+        private SKImage? _cachedBlurredBackground;    // 缓存的模糊背景
+        private bool _isBackgroundDirty = true;       // 背景是否需要更新
+        private int _lastWidth = 0;                   // 上一次的宽度
+        private int _lastHeight = 0;                  // 上一次的高度
 
         /// <summary>
         /// 设置模糊半径
@@ -21,6 +28,7 @@ namespace LiquidPDF.Rendering
         public void SetBlurRadius(float value)
         {
             _blurRadius = Math.Max(0, value);
+            _isBackgroundDirty = true; // 模糊半径变化，需要重新模糊
         }
 
         /// <summary>
@@ -29,6 +37,7 @@ namespace LiquidPDF.Rendering
         public void SetChromaticAberration(float value)
         {
             _chromaticAberration = Math.Max(0, value);
+            // 色散效果不需要重新模糊背景
         }
 
         /// <summary>
@@ -37,6 +46,7 @@ namespace LiquidPDF.Rendering
         public void SetInnerOpacity(float value)
         {
             _innerOpacity = Math.Max(0, Math.Min(1, value));
+            // 透明度变化不需要重新模糊背景
         }
 
         /// <summary>
@@ -45,6 +55,14 @@ namespace LiquidPDF.Rendering
         public (float BlurRadius, float ChromaticAberration, float InnerOpacity) GetParameters()
         {
             return (_blurRadius, _chromaticAberration, _innerOpacity);
+        }
+        
+        /// <summary>
+        /// 标记背景为脏，需要重新生成
+        /// </summary>
+        public void MarkBackgroundDirty()
+        {
+            _isBackgroundDirty = true;
         }
 
         /// <summary>
@@ -66,21 +84,33 @@ namespace LiquidPDF.Rendering
 
             try
             {
-                // 1. 第一层：背景模糊
+                // 1. 第一层：背景模糊（优化版本）
                 if (backgroundSnapshot != null)
                 {
-                    // 创建模糊滤镜
-                    using (var blurFilter = SKImageFilter.CreateBlur(_blurRadius, _blurRadius))
-                    using (var paint = new SKPaint())
+                    // 检查是否需要更新缓存
+                    bool needsUpdate = _isBackgroundDirty || 
+                                     _cachedBackground == null || 
+                                     _cachedBlurredBackground == null ||
+                                     _lastWidth != backgroundSnapshot.Width ||
+                                     _lastHeight != backgroundSnapshot.Height;
+
+                    if (needsUpdate)
                     {
-                        paint.ImageFilter = blurFilter;
-                        paint.IsAntialias = true;
+                        // 更新缓存
+                        UpdateBlurCache(backgroundSnapshot);
+                    }
 
-                        // 裁剪到玻璃区域
-                        canvas.ClipRoundRect(bounds);
+                    // 裁剪到玻璃区域
+                    canvas.ClipRoundRect(bounds);
 
-                        // 绘制模糊后的背景
-                        canvas.DrawImage(backgroundSnapshot, 0, 0, paint);
+                    // 使用缓存的模糊背景
+                    if (_cachedBlurredBackground != null)
+                    {
+                        using (var paint = new SKPaint())
+                        {
+                            paint.IsAntialias = true;
+                            canvas.DrawImage(_cachedBlurredBackground, 0, 0, paint);
+                        }
                     }
                 }
 
@@ -152,6 +182,76 @@ namespace LiquidPDF.Rendering
 
             // 调用 DrawGlassPanel
             DrawGlassPanel(canvas, bounds, backgroundSnapshot, isDarkMode);
+        }
+        
+        /// <summary>
+        /// 更新模糊背景缓存
+        /// </summary>
+        /// <param name="backgroundSnapshot">原始背景快照</param>
+        private void UpdateBlurCache(SKImage backgroundSnapshot)
+        {
+            // 释放旧缓存
+            _cachedBackground?.Dispose();
+            _cachedBlurredBackground?.Dispose();
+
+            // 保存新的背景快照
+            _cachedBackground = backgroundSnapshot;
+            _lastWidth = backgroundSnapshot.Width;
+            _lastHeight = backgroundSnapshot.Height;
+
+            // 创建缩小版本以提高性能（50% 缩放）
+            int scaledWidth = backgroundSnapshot.Width / 2;
+            int scaledHeight = backgroundSnapshot.Height / 2;
+
+            // 创建离屏表面用于模糊
+            using (var surface = SKSurface.Create(new SKImageInfo(scaledWidth, scaledHeight, SKColorType.Bgra8888, SKAlphaType.Premul)))
+            {
+                var surfaceCanvas = surface.Canvas;
+                
+                // 缩小绘制背景
+                using (var paint = new SKPaint())
+                {
+                    paint.IsAntialias = true;
+                    paint.FilterQuality = SKFilterQuality.Medium;
+                    surfaceCanvas.DrawImage(backgroundSnapshot, new SKRect(0, 0, scaledWidth, scaledHeight), paint);
+                }
+
+                // 应用模糊
+                using (var blurredSurface = SKSurface.Create(new SKImageInfo(scaledWidth, scaledHeight, SKColorType.Bgra8888, SKAlphaType.Premul)))
+                {
+                    var blurredCanvas = blurredSurface.Canvas;
+                    
+                    using (var blurFilter = SKImageFilter.CreateBlur(_blurRadius, _blurRadius))
+                    using (var paint = new SKPaint())
+                    {
+                        paint.ImageFilter = blurFilter;
+                        paint.IsAntialias = true;
+                        blurredCanvas.DrawSurface(surface, 0, 0, paint);
+                    }
+
+                    // 将模糊后的表面转换为图像并放大回原始尺寸
+                    using (var blurredImage = blurredSurface.Snapshot())
+                    {
+                        using (var finalSurface = SKSurface.Create(new SKImageInfo(backgroundSnapshot.Width, backgroundSnapshot.Height, SKColorType.Bgra8888, SKAlphaType.Premul)))
+                        {
+                            var finalCanvas = finalSurface.Canvas;
+                            
+                            using (var paint = new SKPaint())
+                            {
+                                paint.IsAntialias = true;
+                                paint.FilterQuality = SKFilterQuality.Medium;
+                                finalCanvas.DrawImage(blurredImage, new SKRect(0, 0, backgroundSnapshot.Width, backgroundSnapshot.Height), paint);
+                            }
+
+                            // 保存最终的模糊背景
+                            _cachedBlurredBackground = finalSurface.Snapshot();
+                        }
+                    }
+                }
+            }
+
+            // 标记背景为干净
+            _isBackgroundDirty = false;
         }
 
         /// <summary>
@@ -287,6 +387,15 @@ namespace LiquidPDF.Rendering
 
                 canvas.DrawRoundRect(bounds, paint);
             }
+        }
+        
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            _cachedBackground?.Dispose();
+            _cachedBlurredBackground?.Dispose();
         }
     }
 }
