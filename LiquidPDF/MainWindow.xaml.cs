@@ -45,6 +45,8 @@ namespace LiquidPDF
         // 侧边栏状态
         private bool _sidebarVisible = true;
         private const float SIDEBAR_WIDTH = 200f;
+        // 侧边栏滚动偏移
+        private float _sidebarScrollOffset = 0f;
         // 深色模式
         private bool _isDarkMode = true;
 
@@ -233,13 +235,39 @@ namespace LiquidPDF
                     const float THUMBNAIL_START_Y = 52 + 16; // TOOLBAR_HEIGHT + 16
 
                     float thumbnailWidth = SIDEBAR_WIDTH - 2 * THUMBNAIL_MARGIN;
-                    float currentY = THUMBNAIL_START_Y;
+                    float visibleHeight = info.Height - 52; // 可见区域高度
 
-                    // 遍历所有页面
+                    // 计算总高度和最大滚动偏移
+                    float totalHeight = 0;
+                    float[] pageHeights = new float[_pdf.PageCount];
                     for (int i = 0; i < _pdf.PageCount; i++)
                     {
-                        // 计算页面宽高比
                         float aspectRatio = _pdf.GetPageAspectRatio(i);
+                        float thumbnailHeight = thumbnailWidth / aspectRatio;
+                        pageHeights[i] = thumbnailHeight + 8 + THUMBNAIL_SPACING; // 8 是页码标签的高度
+                        totalHeight += pageHeights[i];
+                    }
+
+                    // 限制滚动偏移
+                    float maxScrollOffset = Math.Max(0, totalHeight - visibleHeight);
+                    if (_sidebarScrollOffset < 0) _sidebarScrollOffset = 0;
+                    if (_sidebarScrollOffset > maxScrollOffset) _sidebarScrollOffset = maxScrollOffset;
+
+                    // 计算可见范围
+                    float currentY = THUMBNAIL_START_Y - _sidebarScrollOffset;
+                    int startPage = 0;
+                    // 找到第一个可见页
+                    while (startPage < _pdf.PageCount && currentY + pageHeights[startPage] < THUMBNAIL_START_Y)
+                    {
+                        currentY += pageHeights[startPage];
+                        startPage++;
+                    }
+
+                    // 渲染可见范围内的缩略图
+                    int endPage = startPage;
+                    while (endPage < _pdf.PageCount && currentY < info.Height)
+                    {
+                        float aspectRatio = _pdf.GetPageAspectRatio(endPage);
                         float thumbnailHeight = thumbnailWidth / aspectRatio;
 
                         // 计算缩略图区域
@@ -251,7 +279,7 @@ namespace LiquidPDF
                         );
 
                         // 如果是当前页，绘制高亮背景
-                        if (i == _currentPage)
+                        if (endPage == _currentPage)
                         {
                             using (var highlightPaint = new SKPaint())
                             {
@@ -271,7 +299,7 @@ namespace LiquidPDF
                         }
 
                         // 渲染缩略图
-                        var thumbnailBitmap = _pdf.RenderPage(i, (int)thumbnailWidth);
+                        var thumbnailBitmap = _pdf.RenderPage(endPage, (int)thumbnailWidth);
                         if (thumbnailBitmap != null)
                         {
                             using (var paint = new SKPaint())
@@ -300,13 +328,14 @@ namespace LiquidPDF
                             textPaint.TextAlign = SKTextAlign.Center;
                             textPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
 
-                            string pageNumber = (i + 1).ToString();
+                            string pageNumber = (endPage + 1).ToString();
                             float textY = currentY + thumbnailHeight + 8;
                             canvas.DrawText(pageNumber, SIDEBAR_WIDTH / 2f, textY, textPaint);
                         }
 
                         // 更新当前 Y 坐标
                         currentY += thumbnailHeight + 8 + THUMBNAIL_SPACING; // 8 是页码标签的高度
+                        endPage++;
                     }
                 }
             }
@@ -676,8 +705,20 @@ namespace LiquidPDF
         {
             if (!_pdf.IsLoaded) return;
 
+            // 获取鼠标位置
+            var point = e.GetPosition(MainCanvas);
+            float mouseX = (float)point.X;
+
+            // 检查是否在侧边栏区域
+            if (_sidebarVisible && mouseX <= SIDEBAR_WIDTH)
+            {
+                // 侧边栏滚动模式
+                const float SCROLL_SPEED = 20f;
+                _sidebarScrollOffset += (e.Delta < 0 ? SCROLL_SPEED : -SCROLL_SPEED);
+                MainCanvas.InvalidateVisual();
+            }
             // 如果按住 Ctrl 键，实现缩放功能
-            if (Keyboard.Modifiers == ModifierKeys.Control)
+            else if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 // 缩放模式
                 if (e.Delta > 0)
@@ -741,7 +782,7 @@ namespace LiquidPDF
                 const float THUMBNAIL_START_Y = 52 + 16; // TOOLBAR_HEIGHT + 16
 
                 float thumbnailWidth = SIDEBAR_WIDTH - 2 * THUMBNAIL_MARGIN;
-                float currentY = THUMBNAIL_START_Y;
+                float currentY = THUMBNAIL_START_Y - _sidebarScrollOffset;
 
                 // 遍历所有页面，检查点击位置
                 for (int i = 0; i < _pdf.PageCount; i++)
