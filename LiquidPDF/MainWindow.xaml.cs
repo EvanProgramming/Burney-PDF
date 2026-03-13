@@ -42,6 +42,11 @@ namespace LiquidPDF
         private float _zoom = 1.0f;
         // 当前文件名
         private string? _currentFileName;
+        // 侧边栏状态
+        private bool _sidebarVisible = true;
+        private const float SIDEBAR_WIDTH = 200f;
+        // 深色模式
+        private bool _isDarkMode = true;
 
         public MainWindow()
         {
@@ -187,8 +192,39 @@ namespace LiquidPDF
             SKCanvas canvas = e.Surface.Canvas;
             SKImageInfo info = e.Info;
 
-            // 1. 清空画布为深色背景
-            canvas.Clear(new SKColor(30, 30, 36)); // #1E1E24
+            // 1. 清空画布，根据模式设置背景颜色
+            if (_isDarkMode)
+            {
+                canvas.Clear(new SKColor(30, 30, 36)); // #1E1E24
+            }
+            else
+            {
+                canvas.Clear(new SKColor(244, 244, 249)); // #F4F4F9
+            }
+
+            // 2. 绘制侧边栏背景
+            if (_sidebarVisible)
+            {
+                // 侧边栏背景矩形
+                using (var sidebarPaint = new SKPaint())
+                {
+                    sidebarPaint.Color = _isDarkMode ? new SKColor(24, 24, 30) : new SKColor(238, 238, 239); // 深色模式 #18181E，浅色模式 #EEEEEF
+                    sidebarPaint.IsAntialias = true;
+                    var sidebarRect = new SKRect(0, 52, SIDEBAR_WIDTH, info.Height);
+                    canvas.DrawRect(sidebarRect, sidebarPaint);
+                }
+
+                // 右边框
+                using (var borderPaint = new SKPaint())
+                {
+                    borderPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 30) : new SKColor(0, 0, 0, 20);
+                    borderPaint.IsAntialias = true;
+                    borderPaint.StrokeWidth = 1;
+                    var startPoint = new SKPoint(SIDEBAR_WIDTH, 52);
+                    var endPoint = new SKPoint(SIDEBAR_WIDTH, info.Height);
+                    canvas.DrawLine(startPoint, endPoint, borderPaint);
+                }
+            }
 
             // 2. 检查是否已加载 PDF
             if (!_pdf.IsLoaded)
@@ -196,7 +232,7 @@ namespace LiquidPDF
                 // 绘制空状态
                 using (var textPaint = new SKPaint())
                 {
-                    textPaint.Color = new SKColor(255, 255, 255, 128); // 半透明白色
+                    textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 128) : new SKColor(0, 0, 0, 128); // 半透明文字
                     textPaint.TextSize = 16;
                     textPaint.IsAntialias = true;
                     textPaint.TextAlign = SKTextAlign.Center;
@@ -219,8 +255,9 @@ namespace LiquidPDF
                 const float PAGE_CORNER_RADIUS = 4;
 
                 // 1. 计算内容区域
+                float contentLeft = _sidebarVisible ? SIDEBAR_WIDTH : 0;
                 var contentRect = new SKRect(
-                    0,
+                    contentLeft,
                     52, // TOOLBAR_HEIGHT
                     info.Width,
                     info.Height - 52 - 44 - 20 // TOOLBAR_HEIGHT - CAPSULE_HEIGHT - CAPSULE_MARGIN
@@ -292,14 +329,14 @@ namespace LiquidPDF
 
             // 8. 绘制顶部液态玻璃工具栏
             var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, TOOLBAR_HEIGHT), 0, 0);
-            _glass.DrawGlassPanel(canvas, toolbarRect, _backgroundSnapshot, true);
+            _glass.DrawGlassPanel(canvas, toolbarRect, _backgroundSnapshot, _isDarkMode);
 
             // 9. 绘制工具栏 UI 元素
             // 创建文字绘制 SKPaint
             using (var textPaint = new SKPaint())
             {
                 textPaint.IsAntialias = true;
-                textPaint.Color = new SKColor(255, 255, 255, 220); // 深色模式文字颜色
+                textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 220) : new SKColor(0, 0, 0, 220); // 深色/浅色模式文字颜色
                 textPaint.TextSize = 13;
                 textPaint.TextAlign = SKTextAlign.Center;
                 // 设置 Segoe UI Semibold 字体
@@ -315,7 +352,7 @@ namespace LiquidPDF
             using (var iconPaint = new SKPaint())
             {
                 iconPaint.IsAntialias = true;
-                iconPaint.Color = new SKColor(255, 255, 255, 160); // 图标颜色稍浅
+                iconPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 160) : new SKColor(0, 0, 0, 160); // 深色/浅色模式图标颜色
                 iconPaint.TextSize = 16;
                 iconPaint.TextAlign = SKTextAlign.Center;
                 // 设置 Segoe UI Symbol 字体
@@ -341,7 +378,7 @@ namespace LiquidPDF
             float capsuleX = (info.Width - capsuleW) / 2;
             float capsuleY = info.Height - capsuleH - 20;
             var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleW, capsuleY + capsuleH);
-            _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, true);
+            _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, _isDarkMode);
 
             // 11. 在胶囊栏上绘制页码和控制元素
             if (_pdf.IsLoaded)
@@ -353,7 +390,7 @@ namespace LiquidPDF
                 using (var textPaint = new SKPaint())
                 {
                     textPaint.IsAntialias = true;
-                    textPaint.Color = new SKColor(255, 255, 255, 200); // 半透明白色
+                    textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 200) : new SKColor(0, 0, 0, 200); // 半透明文字
                     textPaint.TextSize = 12.5f;
                     textPaint.TextAlign = SKTextAlign.Center;
                     // 设置 Segoe UI Regular 字体
@@ -374,12 +411,16 @@ namespace LiquidPDF
 
                     // 左侧：上一页箭头
                     float leftArrowX = capsuleX + 28;
-                    arrowPaint.Color = _currentPage > 0 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60); // 第一页时半透明
+                    arrowPaint.Color = _isDarkMode 
+                        ? (_currentPage > 0 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60)) 
+                        : (_currentPage > 0 ? new SKColor(0, 0, 0, 120) : new SKColor(0, 0, 0, 60)); // 第一页时半透明
                     canvas.DrawText("◀", leftArrowX, centerY, arrowPaint);
 
                     // 右侧：下一页箭头
                     float rightArrowX = capsuleX + capsuleW - 28;
-                    arrowPaint.Color = _currentPage < _pdf.PageCount - 1 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60); // 最后一页时半透明
+                    arrowPaint.Color = _isDarkMode 
+                        ? (_currentPage < _pdf.PageCount - 1 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60)) 
+                        : (_currentPage < _pdf.PageCount - 1 ? new SKColor(0, 0, 0, 120) : new SKColor(0, 0, 0, 60)); // 最后一页时半透明
                     canvas.DrawText("▶", rightArrowX, centerY, arrowPaint);
                 }
             }
@@ -388,7 +429,7 @@ namespace LiquidPDF
                 // 未加载 PDF 时，绘制空状态
                 using (var textPaint = new SKPaint())
                 {
-                    textPaint.Color = SKColors.White;
+                    textPaint.Color = _isDarkMode ? SKColors.White : SKColors.Black;
                     textPaint.TextSize = 14;
                     textPaint.IsAntialias = true;
                     textPaint.TextAlign = SKTextAlign.Center;
@@ -593,12 +634,21 @@ namespace LiquidPDF
         // 鼠标点击事件
         private void OnMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (!_pdf.IsLoaded) return;
-
             // 获取点击位置（考虑 DPI 缩放）
             var point = e.GetPosition(MainCanvas);
             float clickX = (float)point.X;
             float clickY = (float)point.Y;
+
+            // 检查是否点击工具栏左侧的侧边栏按钮（左侧 56px）
+            if (clickY <= 52 && clickX <= 56)
+            {
+                // 切换侧边栏显示/隐藏
+                _sidebarVisible = !_sidebarVisible;
+                MainCanvas.InvalidateVisual();
+                return;
+            }
+
+            if (!_pdf.IsLoaded) return;
 
             // 计算胶囊栏区域
             float capsuleW = 360;
@@ -622,6 +672,24 @@ namespace LiquidPDF
                     _currentPage++;
                     MainCanvas.InvalidateVisual();
                 }
+            }
+        }
+
+        // 键盘按键事件
+        private void OnKeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.S:
+                    // 按 S 键切换侧边栏显示/隐藏
+                    _sidebarVisible = !_sidebarVisible;
+                    MainCanvas.InvalidateVisual();
+                    break;
+                case Key.F2:
+                    // 按 F2 键切换深色/浅色模式
+                    _isDarkMode = !_isDarkMode;
+                    MainCanvas.InvalidateVisual();
+                    break;
             }
         }
     }
