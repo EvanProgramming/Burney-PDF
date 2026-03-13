@@ -1,3 +1,4 @@
+using System;
 using SkiaSharp;
 
 namespace LiquidPDF.Rendering
@@ -13,6 +14,38 @@ namespace LiquidPDF.Rendering
         private float _chromaticAberration = 2.5f;    // 色散强度（px）
         private float _innerOpacity = 0.12f;          // 内部填充透明度
         private float _borderHighlight = 0.6f;        // 边缘高光强度
+
+        /// <summary>
+        /// 设置模糊半径
+        /// </summary>
+        public void SetBlurRadius(float value)
+        {
+            _blurRadius = Math.Max(0, value);
+        }
+
+        /// <summary>
+        /// 设置色散强度
+        /// </summary>
+        public void SetChromaticAberration(float value)
+        {
+            _chromaticAberration = Math.Max(0, value);
+        }
+
+        /// <summary>
+        /// 设置内部填充透明度
+        /// </summary>
+        public void SetInnerOpacity(float value)
+        {
+            _innerOpacity = Math.Max(0, Math.Min(1, value));
+        }
+
+        /// <summary>
+        /// 获取当前参数值
+        /// </summary>
+        public (float BlurRadius, float ChromaticAberration, float InnerOpacity) GetParameters()
+        {
+            return (_blurRadius, _chromaticAberration, _innerOpacity);
+        }
 
         /// <summary>
         /// 绘制玻璃面板

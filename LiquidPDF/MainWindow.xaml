@@ -14,7 +14,7 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        WindowStartupLocation="CenterScreen" SizeChanged="Window_SizeChanged" MouseDoubleClick="Window_MouseDoubleClick">
+        WindowStartupLocation="CenterScreen" SizeChanged="Window_SizeChanged" MouseDoubleClick="Window_MouseDoubleClick" PreviewKeyDown="Window_PreviewKeyDown">
     <Border CornerRadius="12" Background="#1E1E24" BorderThickness="1" BorderBrush="#2A2A32">
         <Grid>
             <!-- 标题栏 -->

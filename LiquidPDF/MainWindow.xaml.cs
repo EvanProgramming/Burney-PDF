@@ -252,5 +252,60 @@ namespace LiquidPDF
             // 触发重绘
             MainCanvas.InvalidateVisual();
         }
+
+        // 键盘按键事件
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                // 调整模糊半径
+                case Key.D1:
+                    _glass.SetBlurRadius(_glass.GetParameters().BlurRadius + 5);
+                    MainCanvas.InvalidateVisual();
+                    PrintParameters();
+                    break;
+                case Key.D2:
+                    _glass.SetBlurRadius(_glass.GetParameters().BlurRadius - 5);
+                    MainCanvas.InvalidateVisual();
+                    PrintParameters();
+                    break;
+                
+                // 调整色散强度
+                case Key.D3:
+                    _glass.SetChromaticAberration(_glass.GetParameters().ChromaticAberration + 0.5f);
+                    MainCanvas.InvalidateVisual();
+                    PrintParameters();
+                    break;
+                case Key.D4:
+                    _glass.SetChromaticAberration(_glass.GetParameters().ChromaticAberration - 0.5f);
+                    MainCanvas.InvalidateVisual();
+                    PrintParameters();
+                    break;
+                
+                // 调整透明度
+                case Key.D5:
+                    _glass.SetInnerOpacity(_glass.GetParameters().InnerOpacity + 0.02f);
+                    MainCanvas.InvalidateVisual();
+                    PrintParameters();
+                    break;
+                case Key.D6:
+                    _glass.SetInnerOpacity(_glass.GetParameters().InnerOpacity - 0.02f);
+                    MainCanvas.InvalidateVisual();
+                    PrintParameters();
+                    break;
+                
+                // 打印参数
+                case Key.D:
+                    PrintParameters();
+                    break;
+            }
+        }
+
+        // 打印当前参数值
+        private void PrintParameters()
+        {
+            var (blur, aberration, opacity) = _glass.GetParameters();
+            Console.WriteLine($"Blur: {blur} | Aberration: {aberration} | Opacity: {opacity:F2}");
+        }
     }
 }
