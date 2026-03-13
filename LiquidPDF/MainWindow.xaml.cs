@@ -52,6 +52,8 @@ namespace LiquidPDF
         private float _sidebarScrollOffset = 0f;
         // 深色模式
         private bool _isDarkMode = true;
+        // 全屏模式
+        private bool _isFullscreen = false;
         // 翻页动画相关字段
         private int _targetPage = 0;           // 目标页码
         private float _pageTransition = 1.0f;  // 过渡进度 0-1
@@ -1253,8 +1255,65 @@ namespace LiquidPDF
         // 键盘按键事件
         private void OnKeyDown(object sender, KeyEventArgs e)
         {
+            // 处理 Ctrl 组合键
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                switch (e.Key)
+                {
+                    case Key.O:
+                        // Ctrl+O 打开文件
+                        var openFileDialog = new Microsoft.Win32.OpenFileDialog
+                        {
+                            Filter = "PDF 文件 (*.pdf)|*.pdf",
+                            Title = "选择 PDF 文件"
+                        };
+                        
+                        if (openFileDialog.ShowDialog() == true)
+                        {
+                            LoadPdfFile(openFileDialog.FileName);
+                        }
+                        break;
+                    case Key.W:
+                        // Ctrl+W 关闭窗口
+                        Close();
+                        break;
+                }
+                return;
+            }
+
+            // 处理其他快捷键
             switch (e.Key)
             {
+                case Key.Left:
+                case Key.PageUp:
+                    // 左箭头 / PageUp → 上一页
+                    if (_pdf.IsLoaded && _currentPage > 0)
+                    {
+                        StartPageTransition(_currentPage - 1);
+                    }
+                    break;
+                case Key.Right:
+                case Key.PageDown:
+                    // 右箭头 / PageDown → 下一页
+                    if (_pdf.IsLoaded && _currentPage < _pdf.PageCount - 1)
+                    {
+                        StartPageTransition(_currentPage + 1);
+                    }
+                    break;
+                case Key.Home:
+                    // Home → 跳到第一页
+                    if (_pdf.IsLoaded && _currentPage > 0)
+                    {
+                        StartPageTransition(0);
+                    }
+                    break;
+                case Key.End:
+                    // End → 跳到最后一页
+                    if (_pdf.IsLoaded && _currentPage < _pdf.PageCount - 1)
+                    {
+                        StartPageTransition(_pdf.PageCount - 1);
+                    }
+                    break;
                 case Key.S:
                     // 按 S 键切换侧边栏显示/隐藏
                     _sidebarVisible = !_sidebarVisible;
@@ -1266,11 +1325,48 @@ namespace LiquidPDF
                     UpdateWindowBorderColor();
                     MainCanvas.InvalidateVisual();
                     break;
+                case Key.F11:
+                    // F11 切换全屏
+                    ToggleFullscreen();
+                    break;
+                case Key.Escape:
+                    // Esc 退出全屏
+                    if (_isFullscreen)
+                    {
+                        ToggleFullscreen();
+                    }
+                    break;
                 case Key.M:
                     // 按 M 键打印内存占用和状态
                     PrintMemoryAndState();
                     break;
             }
+        }
+
+        // 切换全屏模式
+        private void ToggleFullscreen()
+        {
+            _isFullscreen = !_isFullscreen;
+            
+            if (_isFullscreen)
+            {
+                // 进入全屏模式
+                WindowState = WindowState.Maximized;
+                WindowStyle = WindowStyle.None;
+                WindowBorder.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                // 退出全屏模式
+                WindowState = WindowState.Normal;
+                WindowStyle = WindowStyle.SingleBorderWindow;
+                WindowBorder.Visibility = Visibility.Visible;
+            }
+            
+            // 标记背景为脏，需要更新
+            _backgroundDirty = true;
+            // 触发重绘
+            MainCanvas.InvalidateVisual();
         }
 
         // 更新窗口边框颜色
