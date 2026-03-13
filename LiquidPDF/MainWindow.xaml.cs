@@ -16,6 +16,7 @@ using SkiaSharp;
 using SkiaSharp.Views.WPF;
 using LiquidPDF.Rendering;
 using LiquidPDF.Core;
+using LiquidPDF.Themes;
 
 namespace LiquidPDF
 {
@@ -195,14 +196,7 @@ namespace LiquidPDF
             SKImageInfo info = e.Info;
 
             // 1. 清空画布，根据模式设置背景颜色
-            if (_isDarkMode)
-            {
-                canvas.Clear(new SKColor(30, 30, 36)); // #1E1E24
-            }
-            else
-            {
-                canvas.Clear(new SKColor(244, 244, 249)); // #F4F4F9
-            }
+            canvas.Clear(ColorScheme.Background(_isDarkMode));
 
             // 2. 绘制侧边栏背景
             if (_sidebarVisible)
@@ -210,7 +204,7 @@ namespace LiquidPDF
                 // 侧边栏背景矩形
                 using (var sidebarPaint = new SKPaint())
                 {
-                    sidebarPaint.Color = _isDarkMode ? new SKColor(24, 24, 30) : new SKColor(238, 238, 239); // 深色模式 #18181E，浅色模式 #EEEEEF
+                    sidebarPaint.Color = ColorScheme.SidebarBg(_isDarkMode);
                     sidebarPaint.IsAntialias = true;
                     var sidebarRect = new SKRect(0, 52, SIDEBAR_WIDTH, info.Height);
                     canvas.DrawRect(sidebarRect, sidebarPaint);
@@ -219,7 +213,7 @@ namespace LiquidPDF
                 // 右边框
                 using (var borderPaint = new SKPaint())
                 {
-                    borderPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 30) : new SKColor(0, 0, 0, 20);
+                    borderPaint.Color = ColorScheme.Border(_isDarkMode);
                     borderPaint.IsAntialias = true;
                     borderPaint.StrokeWidth = 1;
                     var startPoint = new SKPoint(SIDEBAR_WIDTH, 52);
@@ -323,7 +317,7 @@ namespace LiquidPDF
                         using (var textPaint = new SKPaint())
                         {
                             textPaint.IsAntialias = true;
-                            textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 128) : new SKColor(0, 0, 0, 128);
+                            textPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
                             textPaint.TextSize = 10;
                             textPaint.TextAlign = SKTextAlign.Center;
                             textPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
@@ -346,7 +340,7 @@ namespace LiquidPDF
                 // 绘制空状态
                 using (var textPaint = new SKPaint())
                 {
-                    textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 128) : new SKColor(0, 0, 0, 128); // 半透明文字
+                    textPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
                     textPaint.TextSize = 16;
                     textPaint.IsAntialias = true;
                     textPaint.TextAlign = SKTextAlign.Center;
@@ -450,7 +444,7 @@ namespace LiquidPDF
             using (var textPaint = new SKPaint())
             {
                 textPaint.IsAntialias = true;
-                textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 220) : new SKColor(0, 0, 0, 220); // 深色/浅色模式文字颜色
+                textPaint.Color = ColorScheme.TextPrimary(_isDarkMode);
                 textPaint.TextSize = 13;
                 textPaint.TextAlign = SKTextAlign.Center;
                 // 设置 Segoe UI Semibold 字体
@@ -466,7 +460,7 @@ namespace LiquidPDF
             using (var iconPaint = new SKPaint())
             {
                 iconPaint.IsAntialias = true;
-                iconPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 160) : new SKColor(0, 0, 0, 160); // 深色/浅色模式图标颜色
+                iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
                 iconPaint.TextSize = 16;
                 iconPaint.TextAlign = SKTextAlign.Center;
                 // 设置 Segoe UI Symbol 字体
@@ -480,6 +474,10 @@ namespace LiquidPDF
                 // 右侧：搜索图标 "🔍"
                 float searchIconX = info.Width - TOOLBAR_PADDING - 40;
                 canvas.DrawText("🔍", searchIconX, iconY, iconPaint);
+
+                // 右侧：主题切换图标
+                float themeIconX = info.Width - TOOLBAR_PADDING - 80;
+                canvas.DrawText(_isDarkMode ? "☀️" : "🌙", themeIconX, iconY, iconPaint);
 
                 // 右侧：更多选项图标 "⋯"
                 float moreIconX = info.Width - TOOLBAR_PADDING;
@@ -504,7 +502,7 @@ namespace LiquidPDF
                 using (var textPaint = new SKPaint())
                 {
                     textPaint.IsAntialias = true;
-                    textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 200) : new SKColor(0, 0, 0, 200); // 半透明文字
+                    textPaint.Color = ColorScheme.TextPrimary(_isDarkMode);
                     textPaint.TextSize = 12.5f;
                     textPaint.TextAlign = SKTextAlign.Center;
                     // 设置 Segoe UI Regular 字体
@@ -525,16 +523,16 @@ namespace LiquidPDF
 
                     // 左侧：上一页箭头
                     float leftArrowX = capsuleX + 28;
-                    arrowPaint.Color = _isDarkMode 
-                        ? (_currentPage > 0 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60)) 
-                        : (_currentPage > 0 ? new SKColor(0, 0, 0, 120) : new SKColor(0, 0, 0, 60)); // 第一页时半透明
+                    arrowPaint.Color = _currentPage > 0 
+                        ? ColorScheme.TextSecondary(_isDarkMode) 
+                        : new SKColor(ColorScheme.TextSecondary(_isDarkMode).Red, ColorScheme.TextSecondary(_isDarkMode).Green, ColorScheme.TextSecondary(_isDarkMode).Blue, 60);
                     canvas.DrawText("◀", leftArrowX, centerY, arrowPaint);
 
                     // 右侧：下一页箭头
                     float rightArrowX = capsuleX + capsuleW - 28;
-                    arrowPaint.Color = _isDarkMode 
-                        ? (_currentPage < _pdf.PageCount - 1 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60)) 
-                        : (_currentPage < _pdf.PageCount - 1 ? new SKColor(0, 0, 0, 120) : new SKColor(0, 0, 0, 60)); // 最后一页时半透明
+                    arrowPaint.Color = _currentPage < _pdf.PageCount - 1 
+                        ? ColorScheme.TextSecondary(_isDarkMode) 
+                        : new SKColor(ColorScheme.TextSecondary(_isDarkMode).Red, ColorScheme.TextSecondary(_isDarkMode).Green, ColorScheme.TextSecondary(_isDarkMode).Blue, 60);
                     canvas.DrawText("▶", rightArrowX, centerY, arrowPaint);
                 }
             }
@@ -774,6 +772,17 @@ namespace LiquidPDF
                 return;
             }
 
+            // 检查是否点击工具栏右侧的主题切换图标
+            const float TOOLBAR_PADDING = 16;
+            if (clickY <= 52 && clickX >= MainCanvas.ActualWidth - TOOLBAR_PADDING - 80 - 20 && clickX <= MainCanvas.ActualWidth - TOOLBAR_PADDING - 80 + 20)
+            {
+                // 切换深色/浅色模式
+                _isDarkMode = !_isDarkMode;
+                UpdateWindowBorderColor();
+                MainCanvas.InvalidateVisual();
+                return;
+            }
+
             // 检查是否点击侧边栏区域
             if (_sidebarVisible && clickX <= SIDEBAR_WIDTH && _pdf.IsLoaded)
             {
@@ -854,8 +863,21 @@ namespace LiquidPDF
                 case Key.F2:
                     // 按 F2 键切换深色/浅色模式
                     _isDarkMode = !_isDarkMode;
+                    UpdateWindowBorderColor();
                     MainCanvas.InvalidateVisual();
                     break;
+            }
+        }
+
+        // 更新窗口边框颜色
+        private void UpdateWindowBorderColor()
+        {
+            if (WindowBorder != null)
+            {
+                var bgColor = _isDarkMode ? Color.FromArgb(255, 30, 30, 36) : Color.FromArgb(255, 244, 244, 249);
+                var borderColor = _isDarkMode ? Color.FromArgb(255, 42, 42, 50) : Color.FromArgb(255, 200, 200, 200);
+                WindowBorder.Background = new SolidColorBrush(bgColor);
+                WindowBorder.BorderBrush = new SolidColorBrush(borderColor);
             }
         }
     }
