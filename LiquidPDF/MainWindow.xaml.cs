@@ -14,6 +14,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using SkiaSharp;
 using SkiaSharp.Views.WPF;
+using LiquidPDF.Rendering;
 
 namespace LiquidPDF
 {
@@ -27,10 +28,23 @@ namespace LiquidPDF
         private double previousTop;
         private double previousWidth;
         private double previousHeight;
+        
+        // 液态玻璃渲染器
+        private readonly LiquidGlassRenderer _glass = new();
+        // 背景快照
+        private SKImage? _backgroundSnapshot;
 
         public MainWindow()
         {
             InitializeComponent();
+            Closed += MainWindow_Closed;
+        }
+
+        // 窗口关闭事件
+        private void MainWindow_Closed(object? sender, EventArgs e)
+        {
+            // 释放资源
+            _backgroundSnapshot?.Dispose();
         }
 
         // 标题栏鼠标按下事件 - 移动窗口
@@ -163,27 +177,72 @@ namespace LiquidPDF
             SKCanvas canvas = e.Surface.Canvas;
             SKImageInfo info = e.Info;
 
-            // 清空画布为深色背景
+            // 1. 清空画布为深色背景
             canvas.Clear(new SKColor(30, 30, 36)); // #1E1E24
 
-            // 绘制中心文本
-            string text = "拖放 PDF 文件到此处";
-            using (SKPaint paint = new SKPaint())
+            // 2. 在画布中心绘制一个测试矩形（模拟 PDF 页面）
+            float pdfWidth = 600;
+            float pdfHeight = 800;
+            float pdfX = (info.Width - pdfWidth) / 2;
+            float pdfY = (info.Height - pdfHeight) / 2;
+            var pdfRect = new SKRect(pdfX, pdfY, pdfX + pdfWidth, pdfY + pdfHeight);
+            
+            // 绘制阴影
+            using (var shadowPaint = new SKPaint())
             {
-                // 设置文本属性
-                paint.Color = new SKColor(255, 255, 255, 128); // 半透明白色
-                paint.TextSize = 16;
+                shadowPaint.Color = new SKColor(0, 0, 0, 60);
+                shadowPaint.IsAntialias = true;
+                shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8);
+                canvas.DrawRoundRect(pdfRect, 4, 4, shadowPaint);
+            }
+            
+            // 绘制白色背景
+            using (var paint = new SKPaint())
+            {
+                paint.Color = SKColors.White;
                 paint.IsAntialias = true;
-                paint.TextAlign = SKTextAlign.Center;
+                canvas.DrawRoundRect(pdfRect, 4, 4, paint);
+            }
 
-                // 计算文本位置
-                SKRect textBounds = new SKRect();
-                paint.MeasureText(text, ref textBounds);
-                float x = info.Width / 2f;
-                float y = info.Height / 2f + textBounds.Height / 2f;
+            // 3. 截取当前画布快照
+            _backgroundSnapshot?.Dispose();
+            _backgroundSnapshot = e.Surface.Snapshot();
 
-                // 绘制文本
-                canvas.DrawText(text, x, y, paint);
+            // 4. 绘制顶部液态玻璃工具栏
+            var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, 52), 0, 0);
+            _glass.DrawGlassPanel(canvas, toolbarRect, _backgroundSnapshot, true);
+
+            // 5. 绘制底部液态玻璃胶囊栏
+            float capsuleWidth = 360;
+            float capsuleHeight = 44;
+            float capsuleX = (info.Width - capsuleWidth) / 2;
+            float capsuleY = info.Height - 20 - capsuleHeight;
+            var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleWidth, capsuleY + capsuleHeight);
+            _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, true);
+
+            // 6. 在工具栏和胶囊栏上绘制测试文字
+            // 工具栏文字
+            using (var textPaint = new SKPaint())
+            {
+                textPaint.Color = SKColors.White;
+                textPaint.TextSize = 16;
+                textPaint.IsAntialias = true;
+                textPaint.TextAlign = SKTextAlign.Center;
+                
+                float toolbarTextY = 52 / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
+                canvas.DrawText("Liquid PDF", info.Width / 2f, toolbarTextY, textPaint);
+            }
+            
+            // 胶囊栏文字
+            using (var textPaint = new SKPaint())
+            {
+                textPaint.Color = SKColors.White;
+                textPaint.TextSize = 14;
+                textPaint.IsAntialias = true;
+                textPaint.TextAlign = SKTextAlign.Center;
+                
+                float capsuleTextY = capsuleY + capsuleHeight / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
+                canvas.DrawText("第 1 页，共 1 页", info.Width / 2f, capsuleTextY, textPaint);
             }
         }
 
