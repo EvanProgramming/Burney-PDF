@@ -224,6 +224,91 @@ namespace LiquidPDF
                     var endPoint = new SKPoint(SIDEBAR_WIDTH, info.Height);
                     canvas.DrawLine(startPoint, endPoint, borderPaint);
                 }
+
+                // 绘制 PDF 缩略图列表
+                if (_pdf.IsLoaded)
+                {
+                    const float THUMBNAIL_MARGIN = 20;
+                    const float THUMBNAIL_SPACING = 12;
+                    const float THUMBNAIL_START_Y = 52 + 16; // TOOLBAR_HEIGHT + 16
+
+                    float thumbnailWidth = SIDEBAR_WIDTH - 2 * THUMBNAIL_MARGIN;
+                    float currentY = THUMBNAIL_START_Y;
+
+                    // 遍历所有页面
+                    for (int i = 0; i < _pdf.PageCount; i++)
+                    {
+                        // 计算页面宽高比
+                        float aspectRatio = _pdf.GetPageAspectRatio(i);
+                        float thumbnailHeight = thumbnailWidth / aspectRatio;
+
+                        // 计算缩略图区域
+                        var thumbnailRect = new SKRect(
+                            THUMBNAIL_MARGIN,
+                            currentY,
+                            THUMBNAIL_MARGIN + thumbnailWidth,
+                            currentY + thumbnailHeight
+                        );
+
+                        // 如果是当前页，绘制高亮背景
+                        if (i == _currentPage)
+                        {
+                            using (var highlightPaint = new SKPaint())
+                            {
+                                highlightPaint.Color = new SKColor(88, 130, 255, 50);
+                                highlightPaint.IsAntialias = true;
+                                canvas.DrawRoundRect(thumbnailRect, 3, 3, highlightPaint);
+                            }
+
+                            using (var borderPaint = new SKPaint())
+                            {
+                                borderPaint.Color = new SKColor(88, 130, 255, 180);
+                                borderPaint.IsAntialias = true;
+                                borderPaint.StrokeWidth = 1.5f;
+                                borderPaint.Style = SKPaintStyle.Stroke;
+                                canvas.DrawRoundRect(thumbnailRect, 3, 3, borderPaint);
+                            }
+                        }
+
+                        // 渲染缩略图
+                        var thumbnailBitmap = _pdf.RenderPage(i, (int)thumbnailWidth);
+                        if (thumbnailBitmap != null)
+                        {
+                            using (var paint = new SKPaint())
+                            {
+                                paint.IsAntialias = true;
+                                paint.FilterQuality = SKFilterQuality.High;
+
+                                // 裁剪为圆角矩形
+                                canvas.Save();
+                                var roundRect = new SKRoundRect(thumbnailRect, 3, 3);
+                                canvas.ClipRoundRect(roundRect);
+
+                                // 绘制缩略图
+                                canvas.DrawBitmap(thumbnailBitmap, thumbnailRect, paint);
+
+                                canvas.Restore();
+                            }
+                        }
+
+                        // 绘制页码标签
+                        using (var textPaint = new SKPaint())
+                        {
+                            textPaint.IsAntialias = true;
+                            textPaint.Color = _isDarkMode ? new SKColor(255, 255, 255, 128) : new SKColor(0, 0, 0, 128);
+                            textPaint.TextSize = 10;
+                            textPaint.TextAlign = SKTextAlign.Center;
+                            textPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+
+                            string pageNumber = (i + 1).ToString();
+                            float textY = currentY + thumbnailHeight + 8;
+                            canvas.DrawText(pageNumber, SIDEBAR_WIDTH / 2f, textY, textPaint);
+                        }
+
+                        // 更新当前 Y 坐标
+                        currentY += thumbnailHeight + 8 + THUMBNAIL_SPACING; // 8 是页码标签的高度
+                    }
+                }
             }
 
             // 2. 检查是否已加载 PDF
@@ -646,6 +731,46 @@ namespace LiquidPDF
                 _sidebarVisible = !_sidebarVisible;
                 MainCanvas.InvalidateVisual();
                 return;
+            }
+
+            // 检查是否点击侧边栏区域
+            if (_sidebarVisible && clickX <= SIDEBAR_WIDTH && _pdf.IsLoaded)
+            {
+                const float THUMBNAIL_MARGIN = 20;
+                const float THUMBNAIL_SPACING = 12;
+                const float THUMBNAIL_START_Y = 52 + 16; // TOOLBAR_HEIGHT + 16
+
+                float thumbnailWidth = SIDEBAR_WIDTH - 2 * THUMBNAIL_MARGIN;
+                float currentY = THUMBNAIL_START_Y;
+
+                // 遍历所有页面，检查点击位置
+                for (int i = 0; i < _pdf.PageCount; i++)
+                {
+                    // 计算页面宽高比
+                    float aspectRatio = _pdf.GetPageAspectRatio(i);
+                    float thumbnailHeight = thumbnailWidth / aspectRatio;
+
+                    // 计算缩略图区域
+                    var thumbnailRect = new SKRect(
+                        THUMBNAIL_MARGIN,
+                        currentY,
+                        THUMBNAIL_MARGIN + thumbnailWidth,
+                        currentY + thumbnailHeight
+                    );
+
+                    // 检查点击是否在当前缩略图区域内
+                    if (clickX >= thumbnailRect.Left && clickX <= thumbnailRect.Right &&
+                        clickY >= thumbnailRect.Top && clickY <= thumbnailRect.Bottom + 8) // 8 是页码标签的高度
+                    {
+                        // 更新当前页码
+                        _currentPage = i;
+                        MainCanvas.InvalidateVisual();
+                        return;
+                    }
+
+                    // 更新当前 Y 坐标
+                    currentY += thumbnailHeight + 8 + THUMBNAIL_SPACING; // 8 是页码标签的高度
+                }
             }
 
             if (!_pdf.IsLoaded) return;
