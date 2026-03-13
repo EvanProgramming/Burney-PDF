@@ -513,5 +513,67 @@ namespace LiquidPDF
                 }
             }
         }
+
+        // 鼠标滚轮事件
+        private void OnMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (!_pdf.IsLoaded) return;
+
+            // 如果按住 Ctrl 键，后续实现缩放功能
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // 后续实现缩放
+            }
+            else
+            {
+                // 向上滚：上一页，向下滚：下一页
+                if (e.Delta > 0 && _currentPage > 0)
+                {
+                    _currentPage--;
+                }
+                else if (e.Delta < 0 && _currentPage < _pdf.PageCount - 1)
+                {
+                    _currentPage++;
+                }
+
+                // 重绘
+                MainCanvas.InvalidateVisual();
+            }
+        }
+
+        // 鼠标点击事件
+        private void OnMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (!_pdf.IsLoaded) return;
+
+            // 获取点击位置（考虑 DPI 缩放）
+            var point = e.GetPosition(MainCanvas);
+            float clickX = (float)point.X;
+            float clickY = (float)point.Y;
+
+            // 计算胶囊栏区域
+            float capsuleW = 360;
+            float capsuleH = 44;
+            float capsuleX = (float)((MainCanvas.ActualWidth - capsuleW) / 2);
+            float capsuleY = (float)(MainCanvas.ActualHeight - capsuleH - 20);
+
+            // 检查点击是否在胶囊栏内
+            if (clickX >= capsuleX && clickX <= capsuleX + capsuleW &&
+                clickY >= capsuleY && clickY <= capsuleY + capsuleH)
+            {
+                // 检查是否点击左箭头区域（左侧 56px）
+                if (clickX <= capsuleX + 56 && _currentPage > 0)
+                {
+                    _currentPage--;
+                    MainCanvas.InvalidateVisual();
+                }
+                // 检查是否点击右箭头区域（右侧 56px）
+                else if (clickX >= capsuleX + capsuleW - 56 && _currentPage < _pdf.PageCount - 1)
+                {
+                    _currentPage++;
+                    MainCanvas.InvalidateVisual();
+                }
+            }
+        }
     }
 }
