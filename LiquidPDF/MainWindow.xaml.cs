@@ -336,23 +336,66 @@ namespace LiquidPDF
             }
 
             // 10. 绘制底部液态玻璃胶囊栏
-            float capsuleWidth = 360;
-            float capsuleX = (info.Width - capsuleWidth) / 2;
-            float capsuleY = info.Height - CAPSULE_MARGIN - CAPSULE_HEIGHT;
-            var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleWidth, capsuleY + CAPSULE_HEIGHT);
+            float capsuleW = 360;
+            float capsuleH = 44;
+            float capsuleX = (info.Width - capsuleW) / 2;
+            float capsuleY = info.Height - capsuleH - 20;
+            var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleW, capsuleY + capsuleH);
             _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, true);
 
-            // 11. 在胶囊栏上绘制文字
-            using (var textPaint = new SKPaint())
+            // 11. 在胶囊栏上绘制页码和控制元素
+            if (_pdf.IsLoaded)
             {
-                textPaint.Color = SKColors.White;
-                textPaint.TextSize = 14;
-                textPaint.IsAntialias = true;
-                textPaint.TextAlign = SKTextAlign.Center;
-                
-                float capsuleTextY = capsuleY + CAPSULE_HEIGHT / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
-                string pageInfo = _pdf.IsLoaded ? $"第 {_currentPage + 1} 页，共 {_pdf.PageCount} 页" : "";
-                canvas.DrawText(pageInfo, info.Width / 2f, capsuleTextY, textPaint);
+                // 计算垂直居中位置
+                float centerY = capsuleY + capsuleH / 2f + 4;
+
+                // 绘制页码文字
+                using (var textPaint = new SKPaint())
+                {
+                    textPaint.IsAntialias = true;
+                    textPaint.Color = new SKColor(255, 255, 255, 200); // 半透明白色
+                    textPaint.TextSize = 12.5f;
+                    textPaint.TextAlign = SKTextAlign.Center;
+                    // 设置 Segoe UI Regular 字体
+                    textPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+
+                    string pageInfo = $"第 {_currentPage + 1} 页，共 {_pdf.PageCount} 页";
+                    canvas.DrawText(pageInfo, info.Width / 2f, centerY, textPaint);
+                }
+
+                // 绘制箭头
+                using (var arrowPaint = new SKPaint())
+                {
+                    arrowPaint.IsAntialias = true;
+                    arrowPaint.TextSize = 16;
+                    arrowPaint.TextAlign = SKTextAlign.Center;
+                    // 设置 Segoe UI Symbol 字体
+                    arrowPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI Symbol", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+
+                    // 左侧：上一页箭头
+                    float leftArrowX = capsuleX + 28;
+                    arrowPaint.Color = _currentPage > 0 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60); // 第一页时半透明
+                    canvas.DrawText("◀", leftArrowX, centerY, arrowPaint);
+
+                    // 右侧：下一页箭头
+                    float rightArrowX = capsuleX + capsuleW - 28;
+                    arrowPaint.Color = _currentPage < _pdf.PageCount - 1 ? new SKColor(255, 255, 255, 120) : new SKColor(255, 255, 255, 60); // 最后一页时半透明
+                    canvas.DrawText("▶", rightArrowX, centerY, arrowPaint);
+                }
+            }
+            else
+            {
+                // 未加载 PDF 时，绘制空状态
+                using (var textPaint = new SKPaint())
+                {
+                    textPaint.Color = SKColors.White;
+                    textPaint.TextSize = 14;
+                    textPaint.IsAntialias = true;
+                    textPaint.TextAlign = SKTextAlign.Center;
+                    
+                    float capsuleTextY = capsuleY + capsuleH / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
+                    canvas.DrawText("", info.Width / 2f, capsuleTextY, textPaint);
+                }
             }
         }
 
