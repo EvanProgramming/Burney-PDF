@@ -726,6 +726,27 @@ namespace LiquidPDF
                 }
                 canvas.DrawText("🔍", searchIconX, iconY, iconPaint);
 
+                // 右侧：打开按钮图标 "📁"
+                float openIconX = info.Width - TOOLBAR_PADDING - 120;
+                var openIconRect = new SKRect(openIconX - 16, iconY - 16, openIconX + 16, iconY + 16);
+                _hitboxes["open"] = openIconRect;
+                
+                if (openIconRect.Contains(_mousePosition))
+                {
+                    using (var highlightPaint = new SKPaint())
+                    {
+                        highlightPaint.Color = new SKColor(255, 255, 255, 30);
+                        highlightPaint.IsAntialias = true;
+                        canvas.DrawCircle(openIconX, iconY, 16, highlightPaint);
+                    }
+                    iconPaint.Color = new SKColor(255, 255, 255, 200);
+                }
+                else
+                {
+                    iconPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                }
+                canvas.DrawText("📁", openIconX, iconY, iconPaint);
+
                 // 右侧：主题切换图标
                 float themeIconX = info.Width - TOOLBAR_PADDING - 80;
                 var themeIconRect = new SKRect(themeIconX - 16, iconY - 16, themeIconX + 16, iconY + 16);
@@ -976,6 +997,32 @@ namespace LiquidPDF
             Console.WriteLine($"Blur: {blur} | Aberration: {aberration} | Opacity: {opacity:F2}");
         }
 
+        // 加载 PDF 文件的方法
+        private void LoadPdfFile(string path)
+        {
+            try
+            {
+                // 加载 PDF 文件
+                _pdf.LoadFile(path);
+                // 提取文件名
+                _currentFileName = System.IO.Path.GetFileName(path);
+                // 重置状态
+                _currentPage = 0;
+                _zoom = 1.0f;
+                // 标记背景为脏，需要更新
+                _backgroundDirty = true;
+                // 清空渲染缓存
+                _renderedPages.Clear();
+                _renderingPages.Clear();
+                // 重绘
+                MainCanvas.InvalidateVisual();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"加载 PDF 文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         // 拖放进入事件
         private void OnDragOver(object sender, DragEventArgs e)
         {
@@ -1009,27 +1056,7 @@ namespace LiquidPDF
                 var pdfFile = files.FirstOrDefault(f => System.IO.Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
                 if (!string.IsNullOrEmpty(pdfFile))
                 {
-                    try
-                    {
-                        // 加载 PDF 文件
-                        _pdf.LoadFile(pdfFile);
-                        // 提取文件名
-                        _currentFileName = System.IO.Path.GetFileName(pdfFile);
-                        // 重置状态
-                        _currentPage = 0;
-                        _zoom = 1.0f;
-                        // 标记背景为脏，需要更新
-                        _backgroundDirty = true;
-                        // 清空渲染缓存
-                        _renderedPages.Clear();
-                        _renderingPages.Clear();
-                        // 重绘
-                        MainCanvas.InvalidateVisual();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"加载 PDF 文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
+                    LoadPdfFile(pdfFile);
                 }
             }
         }
@@ -1101,6 +1128,9 @@ namespace LiquidPDF
             float clickX = (float)point.X;
             float clickY = (float)point.Y;
 
+            // 定义常量
+            const float TOOLBAR_PADDING = 16;
+
             // 检查是否点击工具栏左侧的侧边栏按钮（左侧 56px）
             if (clickY <= 52 && clickX <= 56)
             {
@@ -1110,8 +1140,24 @@ namespace LiquidPDF
                 return;
             }
 
+            // 检查是否点击工具栏右侧的打开按钮
+            if (clickY <= 52 && clickX >= MainCanvas.ActualWidth - TOOLBAR_PADDING - 120 - 20 && clickX <= MainCanvas.ActualWidth - TOOLBAR_PADDING - 120 + 20)
+            {
+                // 打开文件对话框
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "PDF 文件 (*.pdf)|*.pdf",
+                    Title = "选择 PDF 文件"
+                };
+                
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    LoadPdfFile(openFileDialog.FileName);
+                }
+                return;
+            }
+
             // 检查是否点击工具栏右侧的主题切换图标
-            const float TOOLBAR_PADDING = 16;
             if (clickY <= 52 && clickX >= MainCanvas.ActualWidth - TOOLBAR_PADDING - 80 - 20 && clickX <= MainCanvas.ActualWidth - TOOLBAR_PADDING - 80 + 20)
             {
                 // 切换深色/浅色模式
@@ -1175,27 +1221,7 @@ namespace LiquidPDF
                     
                     if (openFileDialog.ShowDialog() == true)
                     {
-                        try
-                        {
-                            // 加载 PDF 文件
-                            _pdf.LoadFile(openFileDialog.FileName);
-                            // 提取文件名
-                            _currentFileName = System.IO.Path.GetFileName(openFileDialog.FileName);
-                            // 重置状态
-                            _currentPage = 0;
-                            _zoom = 1.0f;
-                            // 标记背景为脏，需要更新
-                            _backgroundDirty = true;
-                            // 清空渲染缓存
-                            _renderedPages.Clear();
-                            _renderingPages.Clear();
-                            // 重绘
-                            MainCanvas.InvalidateVisual();
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show($"加载 PDF 文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                        }
+                        LoadPdfFile(openFileDialog.FileName);
                     }
                 }
                 return;
