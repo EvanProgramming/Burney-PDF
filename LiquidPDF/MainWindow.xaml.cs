@@ -1277,6 +1277,13 @@ namespace LiquidPDF
                         // Ctrl+W 关闭窗口
                         Close();
                         break;
+                    case Key.G:
+                        // Ctrl+G 页码跳转
+                        if (_pdf.IsLoaded)
+                        {
+                            ShowGoToPageDialog();
+                        }
+                        break;
                 }
                 return;
             }
@@ -1367,6 +1374,96 @@ namespace LiquidPDF
             _backgroundDirty = true;
             // 触发重绘
             MainCanvas.InvalidateVisual();
+        }
+
+        // 显示页码跳转对话框
+        private void ShowGoToPageDialog()
+        {
+            // 创建一个简单的输入对话框
+            var dialog = new System.Windows.Forms.Form
+            {
+                Text = "跳转到页码",
+                Width = 300,
+                Height = 150,
+                FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog,
+                StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen,
+                MinimizeBox = false,
+                MaximizeBox = false
+            };
+
+            // 添加标签
+            var label = new System.Windows.Forms.Label
+            {
+                Text = $"请输入页码 (1-{_pdf.PageCount})：",
+                Location = new System.Drawing.Point(20, 20),
+                Width = 260
+            };
+            dialog.Controls.Add(label);
+
+            // 添加文本框
+            var textBox = new System.Windows.Forms.TextBox
+            {
+                Location = new System.Drawing.Point(20, 50),
+                Width = 260
+            };
+            dialog.Controls.Add(textBox);
+
+            // 添加确定按钮
+            var okButton = new System.Windows.Forms.Button
+            {
+                Text = "确定",
+                Location = new System.Drawing.Point(130, 80),
+                DialogResult = System.Windows.Forms.DialogResult.OK
+            };
+            dialog.Controls.Add(okButton);
+
+            // 添加取消按钮
+            var cancelButton = new System.Windows.Forms.Button
+            {
+                Text = "取消",
+                Location = new System.Drawing.Point(210, 80),
+                DialogResult = System.Windows.Forms.DialogResult.Cancel
+            };
+            dialog.Controls.Add(cancelButton);
+
+            // 设置默认按钮
+            dialog.AcceptButton = okButton;
+            dialog.CancelButton = cancelButton;
+
+            // 显示对话框
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                // 解析输入的页码
+                if (int.TryParse(textBox.Text, out int pageNumber))
+                {
+                    // 验证页码范围
+                    if (pageNumber >= 1 && pageNumber <= _pdf.PageCount)
+                    {
+                        // 跳转到对应页码（页码从0开始，所以减1）
+                        StartPageTransition(pageNumber - 1);
+                    }
+                    else
+                    {
+                        // 显示错误消息
+                        System.Windows.Forms.MessageBox.Show(
+                            $"页码必须在 1 到 {_pdf.PageCount} 之间",
+                            "错误",
+                            System.Windows.Forms.MessageBoxButtons.OK,
+                            System.Windows.Forms.MessageBoxIcon.Error
+                        );
+                    }
+                }
+                else
+                {
+                    // 显示错误消息
+                    System.Windows.Forms.MessageBox.Show(
+                        "请输入有效的页码",
+                        "错误",
+                        System.Windows.Forms.MessageBoxButtons.OK,
+                        System.Windows.Forms.MessageBoxIcon.Error
+                    );
+                }
+            }
         }
 
         // 更新窗口边框颜色
