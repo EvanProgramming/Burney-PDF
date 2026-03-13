@@ -365,22 +365,80 @@ namespace LiquidPDF
             if (!_pdf.IsLoaded)
             {
                 // 绘制空状态
+                
+                // 1. 绘制大图标
+                using (var iconPaint = new SKPaint())
+                {
+                    iconPaint.Color = new SKColor(255, 255, 255, 120);
+                    iconPaint.TextSize = 64;
+                    iconPaint.IsAntialias = true;
+                    iconPaint.TextAlign = SKTextAlign.Center;
+                    
+                    float iconX = info.Width / 2f;
+                    float iconY = info.Height / 2f - 40; // Y 轴偏上
+                    
+                    canvas.DrawText("📄", iconX, iconY, iconPaint);
+                }
+                
+                // 2. 绘制提示文字
                 using (var textPaint = new SKPaint())
                 {
-                    textPaint.Color = ColorScheme.TextSecondary(_isDarkMode);
+                    textPaint.Color = new SKColor(255, 255, 255, 100);
                     textPaint.TextSize = 16;
                     textPaint.IsAntialias = true;
                     textPaint.TextAlign = SKTextAlign.Center;
+                    textPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI Light", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
 
                     // 计算文本位置
                     SKRect textBounds = new SKRect();
                     string text = "拖放 PDF 文件到此处";
                     textPaint.MeasureText(text, ref textBounds);
                     float x = info.Width / 2f;
-                    float y = info.Height / 2f + textBounds.Height / 2f;
+                    float y = info.Height / 2f + 20; // 图标下方
 
                     // 绘制文本
                     canvas.DrawText(text, x, y, textPaint);
+                }
+                
+                // 3. 绘制 "点击打开" 按钮
+                float buttonWidth = 160;
+                float buttonHeight = 40;
+                float buttonX = (info.Width - buttonWidth) / 2f;
+                float buttonY = info.Height / 2f + 60;
+                var buttonRect = new SKRect(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight);
+                
+                // 保存按钮区域用于点击检测
+                _hitboxes["openButton"] = buttonRect;
+                
+                // 绘制按钮背景
+                using (var buttonPaint = new SKPaint())
+                {
+                    buttonPaint.Color = new SKColor(255, 255, 255, 30);
+                    buttonPaint.IsAntialias = true;
+                    canvas.DrawRoundRect(buttonRect, 8, 8, buttonPaint);
+                }
+                
+                // 绘制按钮边框
+                using (var borderPaint = new SKPaint())
+                {
+                    borderPaint.Color = new SKColor(255, 255, 255, 60);
+                    borderPaint.IsAntialias = true;
+                    borderPaint.Style = SKPaintStyle.Stroke;
+                    borderPaint.StrokeWidth = 1;
+                    canvas.DrawRoundRect(buttonRect, 8, 8, borderPaint);
+                }
+                
+                // 绘制按钮文字
+                using (var buttonTextPaint = new SKPaint())
+                {
+                    buttonTextPaint.Color = new SKColor(255, 255, 255, 180);
+                    buttonTextPaint.TextSize = 14;
+                    buttonTextPaint.IsAntialias = true;
+                    buttonTextPaint.TextAlign = SKTextAlign.Center;
+                    buttonTextPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.Medium, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+                    
+                    float textY = buttonY + buttonHeight / 2f + 5;
+                    canvas.DrawText("点击打开", info.Width / 2f, textY, buttonTextPaint);
                 }
             }
             else
@@ -587,8 +645,11 @@ namespace LiquidPDF
             const float CAPSULE_MARGIN = 20;
             const float TOOLBAR_PADDING = 16;
 
-            // 清空碰撞区域字典
-            _hitboxes.Clear();
+            // 清空碰撞区域字典（仅在 PDF 已加载时，因为未加载时的按钮 hitbox 需要保留）
+            if (_pdf.IsLoaded)
+            {
+                _hitboxes.Clear();
+            }
 
             // 8. 绘制顶部液态玻璃工具栏
             var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, TOOLBAR_HEIGHT), 0, 0);
@@ -1099,7 +1160,46 @@ namespace LiquidPDF
                 }
             }
 
-            if (!_pdf.IsLoaded) return;
+            if (!_pdf.IsLoaded)
+            {
+                // 检查是否点击打开按钮
+                if (_hitboxes.TryGetValue("openButton", out var openButtonRect) &&
+                    openButtonRect.Contains(new SKPoint(clickX, clickY)))
+                {
+                    // 打开文件对话框
+                    var openFileDialog = new Microsoft.Win32.OpenFileDialog
+                    {
+                        Filter = "PDF 文件 (*.pdf)|*.pdf",
+                        Title = "选择 PDF 文件"
+                    };
+                    
+                    if (openFileDialog.ShowDialog() == true)
+                    {
+                        try
+                        {
+                            // 加载 PDF 文件
+                            _pdf.LoadFile(openFileDialog.FileName);
+                            // 提取文件名
+                            _currentFileName = System.IO.Path.GetFileName(openFileDialog.FileName);
+                            // 重置状态
+                            _currentPage = 0;
+                            _zoom = 1.0f;
+                            // 标记背景为脏，需要更新
+                            _backgroundDirty = true;
+                            // 清空渲染缓存
+                            _renderedPages.Clear();
+                            _renderingPages.Clear();
+                            // 重绘
+                            MainCanvas.InvalidateVisual();
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"加载 PDF 文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    }
+                }
+                return;
+            }
 
             // 计算胶囊栏区域
             float capsuleW = 360;
