@@ -74,8 +74,21 @@ namespace LiquidPDF
         // 窗口关闭事件
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
-            // 释放资源
+            // 释放渲染页面资源
+            foreach (var bitmap in _renderedPages.Values)
+            {
+                bitmap?.Dispose();
+            }
+            _renderedPages.Clear();
+            _renderingPages.Clear();
+            
+            // 释放背景快照
             _backgroundSnapshot?.Dispose();
+            
+            // 释放液态玻璃渲染器资源
+            _glass.Dispose();
+            
+            // 释放 PDF 引擎资源
             _pdf.Dispose();
         }
 
@@ -1127,6 +1140,10 @@ namespace LiquidPDF
                     UpdateWindowBorderColor();
                     MainCanvas.InvalidateVisual();
                     break;
+                case Key.M:
+                    // 按 M 键打印内存占用和状态
+                    PrintMemoryAndState();
+                    break;
             }
         }
 
@@ -1139,6 +1156,65 @@ namespace LiquidPDF
                 var borderColor = _isDarkMode ? Color.FromArgb(255, 42, 42, 50) : Color.FromArgb(255, 200, 200, 200);
                 WindowBorder.Background = new SolidColorBrush(bgColor);
                 WindowBorder.BorderBrush = new SolidColorBrush(borderColor);
+            }
+        }
+        
+        // 打印内存占用和状态
+        private void PrintMemoryAndState()
+        {
+            // 清理未使用的渲染页面
+            CleanupRenderedPages();
+            
+            // 打印内存占用
+            long memory = GC.GetTotalMemory(false);
+            Console.WriteLine($"内存占用: {memory / 1024 / 1024:F2} MB");
+            
+            // 打印 PDF 缓存页数
+            Console.WriteLine($"PDF 缓存页数: {_pdf.GetCacheSize()}");
+            
+            // 打印渲染页面数
+            Console.WriteLine($"渲染页面数: {_renderedPages.Count}");
+            
+            // 打印正在渲染的页面数
+            Console.WriteLine($"正在渲染的页面数: {_renderingPages.Count}");
+        }
+        
+        // 清理未使用的渲染页面
+        private void CleanupRenderedPages()
+        {
+            const int MAX_RENDERED_PAGES = 15;
+            
+            if (_renderedPages.Count > MAX_RENDERED_PAGES)
+            {
+                // 计算需要清理的页面数
+                int pagesToRemove = _renderedPages.Count - MAX_RENDERED_PAGES;
+                
+                // 找出要保留的页面（当前页和前后各 2 页）
+                HashSet<int> pagesToKeep = new HashSet<int>();
+                for (int i = Math.Max(0, _currentPage - 2); i <= Math.Min(_pdf.PageCount - 1, _currentPage + 2); i++)
+                {
+                    pagesToKeep.Add(i);
+                }
+                
+                // 找出要删除的页面
+                List<int> pagesToDelete = new List<int>();
+                foreach (var page in _renderedPages.Keys)
+                {
+                    if (!pagesToKeep.Contains(page))
+                    {
+                        pagesToDelete.Add(page);
+                    }
+                }
+                
+                // 删除多余的页面
+                foreach (var page in pagesToDelete.Take(pagesToRemove))
+                {
+                    var bitmap = _renderedPages[page];
+                    bitmap?.Dispose();
+                    _renderedPages.Remove(page);
+                }
+                
+                Console.WriteLine($"清理了 {Math.Min(pagesToRemove, pagesToDelete.Count)} 个未使用的渲染页面");
             }
         }
         

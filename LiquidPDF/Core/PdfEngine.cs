@@ -291,6 +291,18 @@ namespace LiquidPDF.Core
         }
 
         /// <summary>
+        /// 获取缓存大小
+        /// </summary>
+        /// <returns>当前缓存中的页面数量</returns>
+        public int GetCacheSize()
+        {
+            lock (_lock)
+            {
+                return _cache.Count;
+            }
+        }
+
+        /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()
