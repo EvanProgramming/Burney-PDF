@@ -238,7 +238,7 @@ namespace LiquidPDF
                 var roundRect = new SKRoundRect(pdfRect, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS);
 
                 // 4. 渲染 PDF 页面
-                int renderWidth = (int)pageWidth;
+                int renderWidth = (int)(pageWidth * _zoom);
                 var bitmap = _pdf.RenderPage(_currentPage, renderWidth);
                 if (bitmap != null)
                 {
@@ -451,6 +451,37 @@ namespace LiquidPDF
                 case Key.D:
                     PrintParameters();
                     break;
+                
+                // 缩放快捷键
+                case Key.D0:
+                    if (Keyboard.Modifiers == ModifierKeys.Control)
+                    {
+                        // Ctrl + 0：重置缩放
+                        _zoom = 1.0f;
+                        _pdf.ClearCache();
+                        MainCanvas.InvalidateVisual();
+                    }
+                    break;
+                case Key.OemPlus:
+                    if (Keyboard.Modifiers == ModifierKeys.Control)
+                    {
+                        // Ctrl + =：放大
+                        _zoom += 0.1f;
+                        if (_zoom > 5.0f) _zoom = 5.0f;
+                        _pdf.ClearCache();
+                        MainCanvas.InvalidateVisual();
+                    }
+                    break;
+                case Key.OemMinus:
+                    if (Keyboard.Modifiers == ModifierKeys.Control)
+                    {
+                        // Ctrl + -：缩小
+                        _zoom -= 0.1f;
+                        if (_zoom < 0.3f) _zoom = 0.3f;
+                        _pdf.ClearCache();
+                        MainCanvas.InvalidateVisual();
+                    }
+                    break;
             }
         }
 
@@ -519,13 +550,31 @@ namespace LiquidPDF
         {
             if (!_pdf.IsLoaded) return;
 
-            // 如果按住 Ctrl 键，后续实现缩放功能
+            // 如果按住 Ctrl 键，实现缩放功能
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
-                // 后续实现缩放
+                // 缩放模式
+                if (e.Delta > 0)
+                {
+                    // 放大
+                    _zoom += 0.1f;
+                    if (_zoom > 5.0f) _zoom = 5.0f;
+                }
+                else
+                {
+                    // 缩小
+                    _zoom -= 0.1f;
+                    if (_zoom < 0.3f) _zoom = 0.3f;
+                }
+
+                // 清空 PDF 缓存（因为渲染尺寸变了）
+                _pdf.ClearCache();
+                // 重绘
+                MainCanvas.InvalidateVisual();
             }
             else
             {
+                // 翻页模式
                 // 向上滚：上一页，向下滚：下一页
                 if (e.Delta > 0 && _currentPage > 0)
                 {
