@@ -215,18 +215,15 @@ namespace LiquidPDF
             else
             {
                 // 定义常量
-                const float TOOLBAR_HEIGHT = 52;
-                const float CAPSULE_HEIGHT = 44;
-                const float CAPSULE_MARGIN = 20;
                 const float PAGE_MARGIN_TOP = 20;
                 const float PAGE_CORNER_RADIUS = 4;
 
                 // 1. 计算内容区域
                 var contentRect = new SKRect(
                     0,
-                    TOOLBAR_HEIGHT,
+                    52, // TOOLBAR_HEIGHT
                     info.Width,
-                    info.Height - TOOLBAR_HEIGHT - CAPSULE_HEIGHT - CAPSULE_MARGIN
+                    info.Height - 52 - 44 - 20 // TOOLBAR_HEIGHT - CAPSULE_HEIGHT - CAPSULE_MARGIN
                 );
 
                 // 2. 计算页面尺寸
@@ -287,33 +284,65 @@ namespace LiquidPDF
             _backgroundSnapshot?.Dispose();
             _backgroundSnapshot = e.Surface.Snapshot();
 
+            // 定义常量
+            const float TOOLBAR_HEIGHT = 52;
+            const float CAPSULE_HEIGHT = 44;
+            const float CAPSULE_MARGIN = 20;
+            const float TOOLBAR_PADDING = 16;
+
             // 8. 绘制顶部液态玻璃工具栏
-            var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, 52), 0, 0);
+            var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, TOOLBAR_HEIGHT), 0, 0);
             _glass.DrawGlassPanel(canvas, toolbarRect, _backgroundSnapshot, true);
 
-            // 9. 绘制底部液态玻璃胶囊栏
-            float capsuleWidth = 360;
-            float capsuleHeight = 44;
-            float capsuleX = (info.Width - capsuleWidth) / 2;
-            float capsuleY = info.Height - 20 - capsuleHeight;
-            var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleWidth, capsuleY + capsuleHeight);
-            _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, true);
-
-            // 10. 在工具栏和胶囊栏上绘制文字
-            // 工具栏文字
+            // 9. 绘制工具栏 UI 元素
+            // 创建文字绘制 SKPaint
             using (var textPaint = new SKPaint())
             {
-                textPaint.Color = SKColors.White;
-                textPaint.TextSize = 16;
                 textPaint.IsAntialias = true;
+                textPaint.Color = new SKColor(255, 255, 255, 220); // 深色模式文字颜色
+                textPaint.TextSize = 13;
                 textPaint.TextAlign = SKTextAlign.Center;
-                
-                float toolbarTextY = 52 / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
+                // 设置 Segoe UI Semibold 字体
+                textPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+
+                // 绘制文件名/标题
+                float toolbarTextY = TOOLBAR_HEIGHT / 2f + 5;
                 string toolbarText = _currentFileName ?? "Liquid PDF";
                 canvas.DrawText(toolbarText, info.Width / 2f, toolbarTextY, textPaint);
             }
-            
-            // 胶囊栏文字
+
+            // 绘制图标
+            using (var iconPaint = new SKPaint())
+            {
+                iconPaint.IsAntialias = true;
+                iconPaint.Color = new SKColor(255, 255, 255, 160); // 图标颜色稍浅
+                iconPaint.TextSize = 16;
+                iconPaint.TextAlign = SKTextAlign.Center;
+                // 设置 Segoe UI Symbol 字体
+                iconPaint.Typeface = SKTypeface.FromFamilyName("Segoe UI Symbol", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+
+                // 左侧：侧边栏切换按钮图标 "☰"
+                float sidebarIconX = TOOLBAR_PADDING;
+                float iconY = TOOLBAR_HEIGHT / 2f + 4;
+                canvas.DrawText("☰", sidebarIconX, iconY, iconPaint);
+
+                // 右侧：搜索图标 "🔍"
+                float searchIconX = info.Width - TOOLBAR_PADDING - 40;
+                canvas.DrawText("🔍", searchIconX, iconY, iconPaint);
+
+                // 右侧：更多选项图标 "⋯"
+                float moreIconX = info.Width - TOOLBAR_PADDING;
+                canvas.DrawText("⋯", moreIconX, iconY, iconPaint);
+            }
+
+            // 10. 绘制底部液态玻璃胶囊栏
+            float capsuleWidth = 360;
+            float capsuleX = (info.Width - capsuleWidth) / 2;
+            float capsuleY = info.Height - CAPSULE_MARGIN - CAPSULE_HEIGHT;
+            var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleWidth, capsuleY + CAPSULE_HEIGHT);
+            _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, true);
+
+            // 11. 在胶囊栏上绘制文字
             using (var textPaint = new SKPaint())
             {
                 textPaint.Color = SKColors.White;
@@ -321,7 +350,7 @@ namespace LiquidPDF
                 textPaint.IsAntialias = true;
                 textPaint.TextAlign = SKTextAlign.Center;
                 
-                float capsuleTextY = capsuleY + capsuleHeight / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
+                float capsuleTextY = capsuleY + CAPSULE_HEIGHT / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
                 string pageInfo = _pdf.IsLoaded ? $"第 {_currentPage + 1} 页，共 {_pdf.PageCount} 页" : "";
                 canvas.DrawText(pageInfo, info.Width / 2f, capsuleTextY, textPaint);
             }
