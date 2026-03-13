@@ -50,6 +50,10 @@ namespace LiquidPDF
         private float _sidebarScrollOffset = 0f;
         // 深色模式
         private bool _isDarkMode = true;
+        // 翻页动画相关字段
+        private int _targetPage = 0;           // 目标页码
+        private float _pageTransition = 1.0f;  // 过渡进度 0-1
+        private System.Windows.Threading.DispatcherTimer? _animationTimer;
 
         public MainWindow()
         {
@@ -382,45 +386,114 @@ namespace LiquidPDF
                 var pdfRect = new SKRect(pdfX, pdfY, pdfX + pageWidth, pdfY + pageHeight);
                 var roundRect = new SKRoundRect(pdfRect, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS);
 
-                // 4. 渲染 PDF 页面
-                int renderWidth = (int)(pageWidth * _zoom);
-                var bitmap = _pdf.RenderPage(_currentPage, renderWidth);
-                if (bitmap != null)
+                // 4. 处理翻页动画
+                if (_pageTransition < 1.0f)
                 {
-                    // 5. 绘制 macOS 风格的多层柔和阴影
-                    // 第一层：偏移 (0, 2)，模糊 8，透明度 15
-                    using (var shadowPaint = new SKPaint())
+                    // 绘制当前页（淡出）
+                    int currentRenderWidth = (int)(pageWidth * _zoom);
+                    var currentBitmap = _pdf.RenderPage(_currentPage, currentRenderWidth);
+                    if (currentBitmap != null)
                     {
-                        shadowPaint.Color = new SKColor(0, 0, 0, 15);
-                        shadowPaint.IsAntialias = true;
-                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8);
-                        var shadowRect1 = new SKRect(pdfRect.Left, pdfRect.Top + 2, pdfRect.Right, pdfRect.Bottom + 2);
-                        canvas.DrawRoundRect(shadowRect1, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+                        // 绘制阴影
+                        using (var shadowPaint = new SKPaint())
+                        {
+                            shadowPaint.Color = new SKColor(0, 0, 0, 15);
+                            shadowPaint.IsAntialias = true;
+                            shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8);
+                            var shadowRect1 = new SKRect(pdfRect.Left, pdfRect.Top + 2, pdfRect.Right, pdfRect.Bottom + 2);
+                            canvas.DrawRoundRect(shadowRect1, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
 
-                        // 第二层：偏移 (0, 8)，模糊 24，透明度 20
-                        shadowPaint.Color = new SKColor(0, 0, 0, 20);
-                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 24);
-                        var shadowRect2 = new SKRect(pdfRect.Left, pdfRect.Top + 8, pdfRect.Right, pdfRect.Bottom + 8);
-                        canvas.DrawRoundRect(shadowRect2, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+                            shadowPaint.Color = new SKColor(0, 0, 0, 20);
+                            shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 24);
+                            var shadowRect2 = new SKRect(pdfRect.Left, pdfRect.Top + 8, pdfRect.Right, pdfRect.Bottom + 8);
+                            canvas.DrawRoundRect(shadowRect2, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
 
-                        // 第三层：偏移 (0, 16)，模糊 48，透明度 12
-                        shadowPaint.Color = new SKColor(0, 0, 0, 12);
-                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 48);
-                        var shadowRect3 = new SKRect(pdfRect.Left, pdfRect.Top + 16, pdfRect.Right, pdfRect.Bottom + 16);
-                        canvas.DrawRoundRect(shadowRect3, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+                            shadowPaint.Color = new SKColor(0, 0, 0, 12);
+                            shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 48);
+                            var shadowRect3 = new SKRect(pdfRect.Left, pdfRect.Top + 16, pdfRect.Right, pdfRect.Bottom + 16);
+                            canvas.DrawRoundRect(shadowRect3, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+                        }
+                        
+                        // 绘制当前页
+                        using (var paint = new SKPaint())
+                        {
+                            paint.IsAntialias = true;
+                            paint.FilterQuality = SKFilterQuality.High;
+                            paint.Color = new SKColor(255, 255, 255, (byte)(255 * (1.0f - _pageTransition)));
+
+                            canvas.Save();
+                            canvas.ClipRoundRect(roundRect);
+                            canvas.DrawBitmap(currentBitmap, pdfRect, paint);
+                            canvas.Restore();
+                        }
                     }
-                    
-                    // 6. 绘制页面
-                    using (var paint = new SKPaint())
+
+                    // 绘制目标页（淡入）
+                    float targetAspectRatio = _pdf.GetPageAspectRatio(_targetPage);
+                    float targetPageHeight = pageWidth * targetAspectRatio;
+                    var targetPdfRect = new SKRect(pdfX, pdfY, pdfX + pageWidth, pdfY + targetPageHeight);
+                    var targetRoundRect = new SKRoundRect(targetPdfRect, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS);
+
+                    int targetRenderWidth = (int)(pageWidth * _zoom);
+                    var targetBitmap = _pdf.RenderPage(_targetPage, targetRenderWidth);
+                    if (targetBitmap != null)
                     {
-                        paint.IsAntialias = true;
-                        paint.FilterQuality = SKFilterQuality.High; // 高质量缩放
+                        // 绘制目标页
+                        using (var paint = new SKPaint())
+                        {
+                            paint.IsAntialias = true;
+                            paint.FilterQuality = SKFilterQuality.High;
+                            paint.Color = new SKColor(255, 255, 255, (byte)(255 * _pageTransition));
 
-                        // 裁剪为圆角矩形
-                        canvas.ClipRoundRect(roundRect);
+                            canvas.Save();
+                            canvas.ClipRoundRect(targetRoundRect);
+                            canvas.DrawBitmap(targetBitmap, targetPdfRect, paint);
+                            canvas.Restore();
+                        }
+                    }
+                }
+                else
+                {
+                    // 正常绘制当前页
+                    int renderWidth = (int)(pageWidth * _zoom);
+                    var bitmap = _pdf.RenderPage(_currentPage, renderWidth);
+                    if (bitmap != null)
+                    {
+                        // 5. 绘制 macOS 风格的多层柔和阴影
+                        // 第一层：偏移 (0, 2)，模糊 8，透明度 15
+                        using (var shadowPaint = new SKPaint())
+                        {
+                            shadowPaint.Color = new SKColor(0, 0, 0, 15);
+                            shadowPaint.IsAntialias = true;
+                            shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8);
+                            var shadowRect1 = new SKRect(pdfRect.Left, pdfRect.Top + 2, pdfRect.Right, pdfRect.Bottom + 2);
+                            canvas.DrawRoundRect(shadowRect1, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
 
-                        // 绘制 PDF 位图，填充整个页面区域
-                        canvas.DrawBitmap(bitmap, pdfRect, paint);
+                            // 第二层：偏移 (0, 8)，模糊 24，透明度 20
+                            shadowPaint.Color = new SKColor(0, 0, 0, 20);
+                            shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 24);
+                            var shadowRect2 = new SKRect(pdfRect.Left, pdfRect.Top + 8, pdfRect.Right, pdfRect.Bottom + 8);
+                            canvas.DrawRoundRect(shadowRect2, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+
+                            // 第三层：偏移 (0, 16)，模糊 48，透明度 12
+                            shadowPaint.Color = new SKColor(0, 0, 0, 12);
+                            shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 48);
+                            var shadowRect3 = new SKRect(pdfRect.Left, pdfRect.Top + 16, pdfRect.Right, pdfRect.Bottom + 16);
+                            canvas.DrawRoundRect(shadowRect3, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+                        }
+                        
+                        // 6. 绘制页面
+                        using (var paint = new SKPaint())
+                        {
+                            paint.IsAntialias = true;
+                            paint.FilterQuality = SKFilterQuality.High; // 高质量缩放
+
+                            // 裁剪为圆角矩形
+                            canvas.ClipRoundRect(roundRect);
+
+                            // 绘制 PDF 位图，填充整个页面区域
+                            canvas.DrawBitmap(bitmap, pdfRect, paint);
+                        }
                     }
                 }
             }
@@ -743,15 +816,12 @@ namespace LiquidPDF
                 // 向上滚：上一页，向下滚：下一页
                 if (e.Delta > 0 && _currentPage > 0)
                 {
-                    _currentPage--;
+                    StartPageTransition(_currentPage - 1);
                 }
                 else if (e.Delta < 0 && _currentPage < _pdf.PageCount - 1)
                 {
-                    _currentPage++;
+                    StartPageTransition(_currentPage + 1);
                 }
-
-                // 重绘
-                MainCanvas.InvalidateVisual();
             }
         }
 
@@ -812,9 +882,8 @@ namespace LiquidPDF
                     if (clickX >= thumbnailRect.Left && clickX <= thumbnailRect.Right &&
                         clickY >= thumbnailRect.Top && clickY <= thumbnailRect.Bottom + 8) // 8 是页码标签的高度
                     {
-                        // 更新当前页码
-                        _currentPage = i;
-                        MainCanvas.InvalidateVisual();
+                        // 启动翻页动画
+                        StartPageTransition(i);
                         return;
                     }
 
@@ -838,14 +907,12 @@ namespace LiquidPDF
                 // 检查是否点击左箭头区域（左侧 56px）
                 if (clickX <= capsuleX + 56 && _currentPage > 0)
                 {
-                    _currentPage--;
-                    MainCanvas.InvalidateVisual();
+                    StartPageTransition(_currentPage - 1);
                 }
                 // 检查是否点击右箭头区域（右侧 56px）
                 else if (clickX >= capsuleX + capsuleW - 56 && _currentPage < _pdf.PageCount - 1)
                 {
-                    _currentPage++;
-                    MainCanvas.InvalidateVisual();
+                    StartPageTransition(_currentPage + 1);
                 }
             }
         }
@@ -879,6 +946,50 @@ namespace LiquidPDF
                 WindowBorder.Background = new SolidColorBrush(bgColor);
                 WindowBorder.BorderBrush = new SolidColorBrush(borderColor);
             }
+        }
+
+        // 缓动函数：Cubic ease-out
+        private float EaseOutCubic(float t)
+            => 1 - MathF.Pow(1 - t, 3);
+
+        // 启动翻页动画
+        private void StartPageTransition(int newPage)
+        {
+            if (newPage == _currentPage || newPage < 0 || newPage >= _pdf.PageCount) return;
+
+            _targetPage = newPage;
+            _pageTransition = 0f;
+
+            // 停止之前的计时器
+            _animationTimer?.Stop();
+
+            // 创建新的动画计时器
+            _animationTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(16) // 约 60fps
+            };
+
+            int frameCount = 0;
+            const int totalFrames = 15; // 16ms * 15 = 240ms，接近 250ms
+
+            _animationTimer.Tick += (sender, e) =>
+            {
+                frameCount++;
+                float progress = (float)frameCount / totalFrames;
+                _pageTransition = EaseOutCubic(Math.Min(progress, 1.0f));
+
+                MainCanvas.InvalidateVisual();
+
+                if (frameCount >= totalFrames)
+                {
+                    _animationTimer?.Stop();
+                    _currentPage = _targetPage;
+                    _pageTransition = 1.0f;
+                    MainCanvas.InvalidateVisual();
+                }
+            };
+
+            _animationTimer.Start();
         }
     }
 }
