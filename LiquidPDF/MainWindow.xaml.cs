@@ -15,6 +15,7 @@ using System.Windows.Shapes;
 using SkiaSharp;
 using SkiaSharp.Views.WPF;
 using LiquidPDF.Rendering;
+using LiquidPDF.Core;
 
 namespace LiquidPDF
 {
@@ -33,6 +34,14 @@ namespace LiquidPDF
         private readonly LiquidGlassRenderer _glass = new();
         // 背景快照
         private SKImage? _backgroundSnapshot;
+        // PDF 引擎
+        private readonly PdfEngine _pdf = new();
+        // 当前页码
+        private int _currentPage = 0;
+        // 缩放比例
+        private float _zoom = 1.0f;
+        // 当前文件名
+        private string? _currentFileName;
 
         public MainWindow()
         {
@@ -45,6 +54,7 @@ namespace LiquidPDF
         {
             // 释放资源
             _backgroundSnapshot?.Dispose();
+            _pdf.Dispose();
         }
 
         // 标题栏鼠标按下事件 - 移动窗口
@@ -180,39 +190,79 @@ namespace LiquidPDF
             // 1. 清空画布为深色背景
             canvas.Clear(new SKColor(30, 30, 36)); // #1E1E24
 
-            // 2. 在画布中心绘制一个测试矩形（模拟 PDF 页面）
-            float pdfWidth = 600;
-            float pdfHeight = 800;
-            float pdfX = (info.Width - pdfWidth) / 2;
-            float pdfY = (info.Height - pdfHeight) / 2;
-            var pdfRect = new SKRect(pdfX, pdfY, pdfX + pdfWidth, pdfY + pdfHeight);
-            
-            // 绘制阴影
-            using (var shadowPaint = new SKPaint())
+            // 2. 检查是否已加载 PDF
+            if (!_pdf.IsLoaded)
             {
-                shadowPaint.Color = new SKColor(0, 0, 0, 60);
-                shadowPaint.IsAntialias = true;
-                shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8);
-                canvas.DrawRoundRect(pdfRect, 4, 4, shadowPaint);
+                // 绘制空状态
+                using (var textPaint = new SKPaint())
+                {
+                    textPaint.Color = new SKColor(255, 255, 255, 128); // 半透明白色
+                    textPaint.TextSize = 16;
+                    textPaint.IsAntialias = true;
+                    textPaint.TextAlign = SKTextAlign.Center;
+
+                    // 计算文本位置
+                    SKRect textBounds = new SKRect();
+                    string text = "拖放 PDF 文件到此处";
+                    textPaint.MeasureText(text, ref textBounds);
+                    float x = info.Width / 2f;
+                    float y = info.Height / 2f + textBounds.Height / 2f;
+
+                    // 绘制文本
+                    canvas.DrawText(text, x, y, textPaint);
+                }
             }
-            
-            // 绘制白色背景
-            using (var paint = new SKPaint())
+            else
             {
-                paint.Color = SKColors.White;
-                paint.IsAntialias = true;
-                canvas.DrawRoundRect(pdfRect, 4, 4, paint);
+                // 3. 计算页面显示区域
+                float maxWidth = info.Width * 0.7f; // 画布宽度的 70%
+                int renderWidth = (int)(maxWidth * _zoom);
+                
+                // 4. 渲染 PDF 页面
+                var bitmap = _pdf.RenderPage(_currentPage, renderWidth);
+                if (bitmap != null)
+                {
+                    // 计算页面位置（居中）
+                    float pdfX = (info.Width - bitmap.Width) / 2f;
+                    float pdfY = (info.Height - bitmap.Height) / 2f;
+                    var pdfRect = new SKRect(pdfX, pdfY, pdfX + bitmap.Width, pdfY + bitmap.Height);
+                    
+                    // 5. 绘制页面阴影（多层柔和阴影）
+                    using (var shadowPaint = new SKPaint())
+                    {
+                        // 外层阴影
+                        shadowPaint.Color = new SKColor(0, 0, 0, 30);
+                        shadowPaint.IsAntialias = true;
+                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 12);
+                        canvas.DrawRoundRect(pdfRect, 4, 4, shadowPaint);
+
+                        // 内层阴影
+                        shadowPaint.Color = new SKColor(0, 0, 0, 60);
+                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 6);
+                        canvas.DrawRoundRect(pdfRect, 4, 4, shadowPaint);
+                    }
+                    
+                    // 6. 绘制页面位图
+                    using (var paint = new SKPaint())
+                    {
+                        paint.IsAntialias = true;
+                        // 绘制带圆角的页面
+                        var roundRect = new SKRoundRect(pdfRect, 4, 4);
+                        canvas.ClipRoundRect(roundRect);
+                        canvas.DrawBitmap(bitmap, pdfX, pdfY, paint);
+                    }
+                }
             }
 
-            // 3. 截取当前画布快照
+            // 7. 截取当前画布快照
             _backgroundSnapshot?.Dispose();
             _backgroundSnapshot = e.Surface.Snapshot();
 
-            // 4. 绘制顶部液态玻璃工具栏
+            // 8. 绘制顶部液态玻璃工具栏
             var toolbarRect = new SKRoundRect(new SKRect(0, 0, info.Width, 52), 0, 0);
             _glass.DrawGlassPanel(canvas, toolbarRect, _backgroundSnapshot, true);
 
-            // 5. 绘制底部液态玻璃胶囊栏
+            // 9. 绘制底部液态玻璃胶囊栏
             float capsuleWidth = 360;
             float capsuleHeight = 44;
             float capsuleX = (info.Width - capsuleWidth) / 2;
@@ -220,7 +270,7 @@ namespace LiquidPDF
             var capsuleRect = new SKRect(capsuleX, capsuleY, capsuleX + capsuleWidth, capsuleY + capsuleHeight);
             _glass.DrawCapsule(canvas, capsuleRect, _backgroundSnapshot, true);
 
-            // 6. 在工具栏和胶囊栏上绘制测试文字
+            // 10. 在工具栏和胶囊栏上绘制文字
             // 工具栏文字
             using (var textPaint = new SKPaint())
             {
@@ -230,7 +280,8 @@ namespace LiquidPDF
                 textPaint.TextAlign = SKTextAlign.Center;
                 
                 float toolbarTextY = 52 / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
-                canvas.DrawText("Liquid PDF", info.Width / 2f, toolbarTextY, textPaint);
+                string toolbarText = _currentFileName ?? "Liquid PDF";
+                canvas.DrawText(toolbarText, info.Width / 2f, toolbarTextY, textPaint);
             }
             
             // 胶囊栏文字
@@ -242,7 +293,8 @@ namespace LiquidPDF
                 textPaint.TextAlign = SKTextAlign.Center;
                 
                 float capsuleTextY = capsuleY + capsuleHeight / 2f + textPaint.FontSpacing / 2f - textPaint.FontMetrics.Descent;
-                canvas.DrawText("第 1 页，共 1 页", info.Width / 2f, capsuleTextY, textPaint);
+                string pageInfo = _pdf.IsLoaded ? $"第 {_currentPage + 1} 页，共 {_pdf.PageCount} 页" : "";
+                canvas.DrawText(pageInfo, info.Width / 2f, capsuleTextY, textPaint);
             }
         }
 
@@ -306,6 +358,59 @@ namespace LiquidPDF
         {
             var (blur, aberration, opacity) = _glass.GetParameters();
             Console.WriteLine($"Blur: {blur} | Aberration: {aberration} | Opacity: {opacity:F2}");
+        }
+
+        // 拖放进入事件
+        private void OnDragOver(object sender, DragEventArgs e)
+        {
+            // 检查拖入的是否为文件
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                // 获取文件路径
+                var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                if (files != null && files.Length > 0)
+                {
+                    // 检查文件扩展名
+                    var file = files[0];
+                    if (System.IO.Path.GetExtension(file).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        e.Effects = DragDropEffects.Copy;
+                        return;
+                    }
+                }
+            }
+            e.Effects = DragDropEffects.None;
+        }
+
+        // 文件拖放事件
+        private void OnFileDrop(object sender, DragEventArgs e)
+        {
+            // 获取文件路径
+            var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files != null && files.Length > 0)
+            {
+                // 过滤出第一个 PDF 文件
+                var pdfFile = files.FirstOrDefault(f => System.IO.Path.GetExtension(f).Equals(".pdf", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(pdfFile))
+                {
+                    try
+                    {
+                        // 加载 PDF 文件
+                        _pdf.LoadFile(pdfFile);
+                        // 提取文件名
+                        _currentFileName = System.IO.Path.GetFileName(pdfFile);
+                        // 重置状态
+                        _currentPage = 0;
+                        _zoom = 1.0f;
+                        // 重绘
+                        MainCanvas.InvalidateVisual();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"加载 PDF 文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
         }
     }
 }
