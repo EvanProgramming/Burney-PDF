@@ -12,6 +12,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using SkiaSharp;
+using SkiaSharp.Views.WPF;
 
 namespace LiquidPDF
 {
@@ -148,6 +150,44 @@ namespace LiquidPDF
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+        // SKElement 绘制事件
+        private void MainCanvas_PaintSurface(object sender, SKPaintSurfaceEventArgs e)
+        {
+            // 获取画布和尺寸
+            SKCanvas canvas = e.Surface.Canvas;
+            SKImageInfo info = e.Info;
+
+            // 清空画布为深色背景
+            canvas.Clear(new SKColor(30, 30, 36)); // #1E1E24
+
+            // 绘制中心文本
+            string text = "拖放 PDF 文件到此处";
+            using (SKPaint paint = new SKPaint())
+            {
+                // 设置文本属性
+                paint.Color = new SKColor(255, 255, 255, 128); // 半透明白色
+                paint.TextSize = 16;
+                paint.IsAntialias = true;
+                paint.TextAlign = SKTextAlign.Center;
+
+                // 计算文本位置
+                SKRect textBounds = new SKRect();
+                paint.MeasureText(text, ref textBounds);
+                float x = info.Width / 2f;
+                float y = info.Height / 2f + textBounds.Height / 2f;
+
+                // 绘制文本
+                canvas.DrawText(text, x, y, paint);
+            }
+        }
+
+        // 窗口大小改变事件
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // 触发重绘
+            MainCanvas.InvalidateVisual();
         }
     }
 }

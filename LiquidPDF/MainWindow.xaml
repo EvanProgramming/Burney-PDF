@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:LiquidPDF"
+        xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         mc:Ignorable="d"
         Title="Liquid PDF"
         Height="800"
@@ -13,11 +14,11 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen" SizeChanged="Window_SizeChanged" MouseDoubleClick="Window_MouseDoubleClick">
     <Border CornerRadius="12" Background="#1E1E24" BorderThickness="1" BorderBrush="#2A2A32">
         <Grid>
             <!-- 标题栏 -->
-            <Grid Height="52" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" MouseDoubleClick="TitleBar_MouseDoubleClick">
+            <Grid Height="52" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -45,9 +46,7 @@
             </Grid>
             
             <!-- 内容区域 -->
-            <Grid Margin="0,52,0,0">
-                <!-- 后续内容将在此添加 -->
-            </Grid>
+            <skia:SKElement x:Name="MainCanvas" Margin="0,52,0,0" PaintSurface="MainCanvas_PaintSurface"/>
         </Grid>
     </Border>
 </Window>

@@ -1,0 +1,3 @@
+C:\Users\Evan\OneDrive\Programming\WinApp\Burney-PDF\LiquidPDF\obj\Debug\net8.0-windows\LiquidPDF.csproj.AssemblyReference.cache
+C:\Users\Evan\OneDrive\Programming\WinApp\Burney-PDF\LiquidPDF\obj\Debug\net8.0-windows\App.g.cs
+C:\Users\Evan\OneDrive\Programming\WinApp\Burney-PDF\LiquidPDF\obj\Debug\net8.0-windows\LiquidPDF_MarkupCompile.cache

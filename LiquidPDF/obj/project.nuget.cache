@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "dgSpecHash": "hxaPnD5eZKA=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Evan\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.0\\communitytoolkit.mvvm.8.4.0.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\docnet.core\\2.6.0\\docnet.core.2.6.0.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\opentk\\3.3.1\\opentk.3.3.1.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\opentk.glwpfcontrol\\3.3.0\\opentk.glwpfcontrol.3.3.0.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\skiasharp\\3.119.2\\skiasharp.3.119.2.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\skiasharp.nativeassets.macos\\3.119.2\\skiasharp.nativeassets.macos.3.119.2.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\skiasharp.nativeassets.win32\\3.119.2\\skiasharp.nativeassets.win32.3.119.2.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\skiasharp.views.desktop.common\\3.119.2\\skiasharp.views.desktop.common.3.119.2.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\skiasharp.views.wpf\\3.119.2\\skiasharp.views.wpf.3.119.2.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.25\\microsoft.netcore.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.25\\microsoft.windowsdesktop.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.25\\microsoft.aspnetcore.app.ref.8.0.25.nupkg.sha512",
+    "C:\\Users\\Evan\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.25\\microsoft.netcore.app.host.win-x64.8.0.25.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "message": "已使用“.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1”而不是项目目标框架“net8.0-windows7.0”还原包“OpenTK 3.3.1”。此包可能与项目不完全兼容。",
+      "projectPath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+      "libraryId": "OpenTK",
+      "targetGraphs": [
+        "net8.0-windows"
+      ]
+    },
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "message": "已使用“.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1”而不是项目目标框架“net8.0-windows7.0”还原包“OpenTK.GLWpfControl 3.3.0”。此包可能与项目不完全兼容。",
+      "projectPath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+      "libraryId": "OpenTK.GLWpfControl",
+      "targetGraphs": [
+        "net8.0-windows"
+      ]
+    },
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "message": "已使用“.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1”而不是项目目标框架“net8.0-windows7.0”还原包“SkiaSharp.Views.WPF 3.119.2”。此包可能与项目不完全兼容。",
+      "projectPath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\Evan\\OneDrive\\Programming\\WinApp\\Burney-PDF\\LiquidPDF\\LiquidPDF.csproj",
+      "libraryId": "SkiaSharp.Views.WPF",
+      "targetGraphs": [
+        "net8.0-windows"
+      ]
+    }
+  ]
+}
