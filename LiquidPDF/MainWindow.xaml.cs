@@ -214,42 +214,71 @@ namespace LiquidPDF
             }
             else
             {
-                // 3. 计算页面显示区域
-                float maxWidth = info.Width * 0.7f; // 画布宽度的 70%
-                int renderWidth = (int)(maxWidth * _zoom);
-                
+                // 定义常量
+                const float TOOLBAR_HEIGHT = 52;
+                const float CAPSULE_HEIGHT = 44;
+                const float CAPSULE_MARGIN = 20;
+                const float PAGE_MARGIN_TOP = 20;
+                const float PAGE_CORNER_RADIUS = 4;
+
+                // 1. 计算内容区域
+                var contentRect = new SKRect(
+                    0,
+                    TOOLBAR_HEIGHT,
+                    info.Width,
+                    info.Height - TOOLBAR_HEIGHT - CAPSULE_HEIGHT - CAPSULE_MARGIN
+                );
+
+                // 2. 计算页面尺寸
+                float pageWidth = contentRect.Width * 0.7f * _zoom;
+                float aspectRatio = _pdf.GetPageAspectRatio(_currentPage);
+                float pageHeight = pageWidth * aspectRatio;
+
+                // 3. 计算页面位置（居中，顶部留 20px 边距）
+                float pdfX = (contentRect.Width - pageWidth) / 2f + contentRect.Left;
+                float pdfY = PAGE_MARGIN_TOP + contentRect.Top;
+                var pdfRect = new SKRect(pdfX, pdfY, pdfX + pageWidth, pdfY + pageHeight);
+                var roundRect = new SKRoundRect(pdfRect, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS);
+
                 // 4. 渲染 PDF 页面
+                int renderWidth = (int)pageWidth;
                 var bitmap = _pdf.RenderPage(_currentPage, renderWidth);
                 if (bitmap != null)
                 {
-                    // 计算页面位置（居中）
-                    float pdfX = (info.Width - bitmap.Width) / 2f;
-                    float pdfY = (info.Height - bitmap.Height) / 2f;
-                    var pdfRect = new SKRect(pdfX, pdfY, pdfX + bitmap.Width, pdfY + bitmap.Height);
-                    
-                    // 5. 绘制页面阴影（多层柔和阴影）
+                    // 5. 绘制 macOS 风格的多层柔和阴影
+                    // 第一层：偏移 (0, 2)，模糊 8，透明度 15
                     using (var shadowPaint = new SKPaint())
                     {
-                        // 外层阴影
-                        shadowPaint.Color = new SKColor(0, 0, 0, 30);
+                        shadowPaint.Color = new SKColor(0, 0, 0, 15);
                         shadowPaint.IsAntialias = true;
-                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 12);
-                        canvas.DrawRoundRect(pdfRect, 4, 4, shadowPaint);
+                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8);
+                        var shadowRect1 = new SKRect(pdfRect.Left, pdfRect.Top + 2, pdfRect.Right, pdfRect.Bottom + 2);
+                        canvas.DrawRoundRect(shadowRect1, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
 
-                        // 内层阴影
-                        shadowPaint.Color = new SKColor(0, 0, 0, 60);
-                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 6);
-                        canvas.DrawRoundRect(pdfRect, 4, 4, shadowPaint);
+                        // 第二层：偏移 (0, 8)，模糊 24，透明度 20
+                        shadowPaint.Color = new SKColor(0, 0, 0, 20);
+                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 24);
+                        var shadowRect2 = new SKRect(pdfRect.Left, pdfRect.Top + 8, pdfRect.Right, pdfRect.Bottom + 8);
+                        canvas.DrawRoundRect(shadowRect2, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
+
+                        // 第三层：偏移 (0, 16)，模糊 48，透明度 12
+                        shadowPaint.Color = new SKColor(0, 0, 0, 12);
+                        shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 48);
+                        var shadowRect3 = new SKRect(pdfRect.Left, pdfRect.Top + 16, pdfRect.Right, pdfRect.Bottom + 16);
+                        canvas.DrawRoundRect(shadowRect3, PAGE_CORNER_RADIUS, PAGE_CORNER_RADIUS, shadowPaint);
                     }
                     
-                    // 6. 绘制页面位图
+                    // 6. 绘制页面
                     using (var paint = new SKPaint())
                     {
                         paint.IsAntialias = true;
-                        // 绘制带圆角的页面
-                        var roundRect = new SKRoundRect(pdfRect, 4, 4);
+                        paint.FilterQuality = SKFilterQuality.High; // 高质量缩放
+
+                        // 裁剪为圆角矩形
                         canvas.ClipRoundRect(roundRect);
-                        canvas.DrawBitmap(bitmap, pdfX, pdfY, paint);
+
+                        // 绘制 PDF 位图，填充整个页面区域
+                        canvas.DrawBitmap(bitmap, pdfRect, paint);
                     }
                 }
             }
